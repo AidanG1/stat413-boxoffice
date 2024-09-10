@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import datetime
 import requests
 import os
-from db import sqlite_db_connect, sqlite_db as db, Movie, DomesticRelease, BoxOfficeDay, Franchise, Keyword, ProductionCompany, ProductionCountry, CastOrCrew, MovieFranchise, MovieKeyword, MovieProductionCompany, MovieProductionCountry, Language, MovieLanguage
+from db import sqlite_db_connect, sqlite_db as db, Movie, DomesticRelease, BoxOfficeDay, Franchise, Keyword, ProductionCompany, ProductionCountry, CastOrCrew, MovieFranchise, MovieKeyword, MovieProductionCompany, MovieProductionCountry, Language, MovieLanguage, Distributor, MovieDistributor
 from scrape_helpers_daily import *
 from scrape_helpers_detail import *
 from scrape_helpers_cast import *
@@ -78,6 +78,11 @@ if __name__ == "__main__":
             if distributor_name_slug is None:
                 print(f"No distributor name and slug")
                 continue
+
+            db_distributor = Distributor.get_or_none(slug=distributor_name_slug.slug)
+
+            if db_distributor is None:
+                db_distributor = Distributor.create(name=distributor_name_slug.name, slug=distributor_name_slug.slug)
 
             # fifth column is the gross
             gross = get_gross(columns[4])
@@ -251,8 +256,8 @@ if __name__ == "__main__":
                     title=title,
                     poster=poster_url,
                     synopsis=synopsis,
-                    mpaa_rating=MPAA.rating,
-                    mpaa_rating_reason=MPAA.reason,
+                    mpaa_rating=mpaa_rating.rating,
+                    mpaa_rating_reason=mpaa_rating.reason,
                     running_time=running_time,
                     source=source,
                     genre=genre,
@@ -264,6 +269,9 @@ if __name__ == "__main__":
 
                 if db_franchise is not None:
                     MovieFranchise.create(movie=movie, franchise=db_franchise)
+
+                if db_distributor is not None:
+                    MovieDistributor.create(movie=movie, distributor=db_distributor)
 
                 for language in database_languages:
                     MovieLanguage.create(movie=movie, language=language)

@@ -35,6 +35,13 @@ class Person(BaseModel):
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
 
+class Distributor(BaseModel):
+    name = CharField()
+    slug = CharField(index=True)
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
+
 
 class ProductionCountry(BaseModel):
     slug = CharField()
@@ -73,8 +80,6 @@ class Movie(BaseModel):
     genre = CharField()
     production_method = CharField()
     creative_type = CharField()
-    distributor = CharField()
-    distributor_slug = CharField()
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
@@ -128,6 +133,10 @@ class MovieLanguage(BaseModel):
     movie = ForeignKeyField(Movie, backref="languages")
     language = ForeignKeyField(Language, backref="movies")
 
+class MovieDistributor(BaseModel):
+    movie = ForeignKeyField(Movie, backref="distributors")
+    distributor = ForeignKeyField(Distributor, backref="movies")
+
 
 def sqlite_db_connect():
     tables = [
@@ -146,6 +155,8 @@ def sqlite_db_connect():
         DomesticRelease,
         BoxOfficeDay,
         MovieLanguage,
+        Distributor,
+        MovieDistributor,
     ]
 
     if sqlite_db.connect():

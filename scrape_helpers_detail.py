@@ -34,6 +34,10 @@ def get_synopsis(main: bs4.element.Tag) -> str | None:
 
     synopsis = synopsis_div.text.strip()
 
+    # they all start with Synopsis so remove that
+    if synopsis.startswith("Synopsis"):
+        synopsis = synopsis[9:]
+
     return synopsis
 
 def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, str]]:

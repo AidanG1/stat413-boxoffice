@@ -12,7 +12,6 @@ from db import (
     Keyword,
     ProductionCompany,
     ProductionCountry,
-    CastOrCrew,
     MovieFranchise,
     MovieKeyword,
     MovieProductionCompany,
@@ -37,11 +36,11 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 }
 
-start_date: datetime.date = datetime.date(2024, 9, 1)
-end_date: datetime.date = datetime.date(2024, 9, 2)
+START_DATE: datetime.date = datetime.date(2022, 1, 1)
+END_DATE: datetime.date = datetime.date(2024, 1, 1)
 
 
-def daterange(start_date: datetime.date, end_date: datetime.date):
+def date_range(start_date: datetime.date, end_date: datetime.date):
     days = int((end_date - start_date).days)
     for n in range(days):
         yield start_date + datetime.timedelta(n)
@@ -49,19 +48,25 @@ def daterange(start_date: datetime.date, end_date: datetime.date):
 
 if __name__ == "__main__":
     sqlite_db_connect()
-    for date in daterange(start_date, end_date):
+    for date in date_range(START_DATE, END_DATE):
         start_time = time.time()
         print("Scraping for date:", date)
 
-        response = requests.get(
-            f"{base_url}{date.year}/{date.month:02}/{date.day:02}", headers=headers
-        )
-        # print(response.text)
+        if os.path.exists(f"{daily_html_dir}/{date}.html"):
+            with open(f"{daily_html_dir}/{date}.html", "r") as f:
+                text = f.read()
+        else:
+            response = requests.get(
+                f"{base_url}{date.year}/{date.month:02}/{date.day:02}", headers=headers
+            )
+            # print(response.text)
 
-        with open(f"{daily_html_dir}/{date}.html", "w") as f:
-            f.write(response.text)
+            with open(f"{daily_html_dir}/{date}.html", "w") as f:
+                f.write(response.text)
 
-        soup = BeautifulSoup(response.text, "html.parser")
+            text = response.text
+
+        soup = BeautifulSoup(text, "html.parser")
 
         table_id = "box_office_daily_table"
 
@@ -115,6 +120,11 @@ if __name__ == "__main__":
 
             # check if the slug is already in the database
             movie = Movie.get_or_none(slug=movie_name_slug.slug)
+
+            # check if the box office day is already in the database, if yes, skip
+            if BoxOfficeDay.get_or_none(date=date, movie=movie):
+                print(f"Box office day for {movie_name_slug.name} already exists")
+                continue
 
             if movie is None:
                 print(f"Scraping for {movie_name_slug.name}")

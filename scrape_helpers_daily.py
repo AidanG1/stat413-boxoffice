@@ -32,7 +32,12 @@ def get_distributor(column: bs4.element.Tag) -> NameSlug | None:
 
     raw = r"/market/distributor/(.*)"
 
-    distributor_slug = column.find("a")["href"]
+    distributor_a = column.find("a")
+
+    if distributor_a is None:
+        return None
+
+    distributor_slug = distributor_a["href"]
 
     match = re.match(raw, distributor_slug)
 
@@ -46,4 +51,7 @@ def get_gross(column: bs4.element.Tag) -> int:
     return int(column.text.replace("$", "").replace(",", ""))
 
 def get_theaters(column: bs4.element.Tag) -> int:
-    return int(column.text.replace(",", ""))
+    try: # sometimes there is an empty theater count
+        return int(column.text.replace(",", ""))
+    except ValueError:
+        return 0

@@ -1,6 +1,6 @@
 from peewee import *
 
-base_db_path: str = "data/data.db"
+base_db_path: str = "data/data.sqlite"
 
 sqlite_db = SqliteDatabase(
     base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64}

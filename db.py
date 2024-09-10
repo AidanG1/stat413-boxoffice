@@ -14,7 +14,7 @@ class BaseModel(Model):
 
 class Keyword(BaseModel):
     name = CharField()
-    slug = CharField()
+    slug = CharField(index=True)
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
@@ -22,7 +22,15 @@ class Keyword(BaseModel):
 
 class ProductionCompany(BaseModel):
     slug = CharField()
+    name = CharField(index=True)
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
+
+
+class Person(BaseModel):
     name = CharField()
+    slug = CharField(index=True)
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
@@ -30,7 +38,7 @@ class ProductionCompany(BaseModel):
 
 class ProductionCountry(BaseModel):
     slug = CharField()
-    name = CharField()
+    name = CharField(index=True)
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
@@ -38,7 +46,7 @@ class ProductionCountry(BaseModel):
 
 class Franchise(BaseModel):
     name = CharField()
-    slug = CharField()
+    slug = CharField(index=True)
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
@@ -46,17 +54,17 @@ class Franchise(BaseModel):
 
 class Language(BaseModel):
     name = CharField()
-    code = CharField()
+    slug = CharField(index=True)
 
     class Meta:
-        constraints = [SQL("UNIQUE (code)")]
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class Movie(BaseModel):
     truncated_title = CharField()
-    slug = CharField()
+    slug = CharField(index=True)
     title = CharField()
-    poster = CharField()
+    poster = CharField(null=True)  # numbers doesn't have posters for some movies
     synopsis = TextField()
     mpaa_rating = CharField()
     mpaa_rating_reason = CharField()
@@ -67,18 +75,17 @@ class Movie(BaseModel):
     creative_type = CharField()
     distributor = CharField()
     distributor_slug = CharField()
-    language = CharField()
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
 
 
 class CastOrCrew(BaseModel):
-    name = CharField()
+    person = ForeignKeyField(Person, backref="people")
     role = CharField()
     is_cast = BooleanField()
     is_lead_ensemble = BooleanField()
-    movie = ForeignKeyField(Movie,backref="cast_or_crew")
+    movie = ForeignKeyField(Movie, backref="cast_or_crew")
 
 
 class MovieFranchise(BaseModel):
@@ -113,6 +120,9 @@ class BoxOfficeDay(BaseModel):
     theaters = IntegerField()
     movie = ForeignKeyField(Movie, backref="box_office_days")
 
+    class Meta:
+        constraints = [SQL("UNIQUE (date, movie_id)")]
+
 
 class MovieLanguage(BaseModel):
     movie = ForeignKeyField(Movie, backref="languages")
@@ -120,28 +130,31 @@ class MovieLanguage(BaseModel):
 
 
 def sqlite_db_connect():
+    tables = [
+        Keyword,
+        ProductionCompany,
+        Person,
+        ProductionCountry,
+        Franchise,
+        Language,
+        Movie,
+        CastOrCrew,
+        MovieFranchise,
+        MovieKeyword,
+        MovieProductionCompany,
+        MovieProductionCountry,
+        DomesticRelease,
+        BoxOfficeDay,
+        MovieLanguage,
+    ]
+
     if sqlite_db.connect():
         # check if the tables exist
         if sqlite_db.table_exists(Movie):
             return True
 
         sqlite_db.create_tables(
-            [
-                Keyword,
-                ProductionCompany,
-                ProductionCountry,
-                Franchise,
-                CastOrCrew,
-                Movie,
-                MovieFranchise,
-                MovieKeyword,
-                MovieProductionCompany,
-                MovieProductionCountry,
-                DomesticRelease,
-                BoxOfficeDay,
-                Language,
-                MovieLanguage,
-            ],
+            tables,
             safe=True,
         )
 
@@ -151,21 +164,6 @@ def sqlite_db_connect():
         sqlite_db.connect()
 
         sqlite_db.create_tables(
-            [
-                Keyword,
-                ProductionCompany,
-                ProductionCountry,
-                Franchise,
-                CastOrCrew,
-                Movie,
-                MovieFranchise,
-                MovieKeyword,
-                MovieProductionCompany,
-                MovieProductionCountry,
-                DomesticRelease,
-                BoxOfficeDay,
-                Language,
-                MovieLanguage,
-            ],
+            tables,
             safe=True,
         )

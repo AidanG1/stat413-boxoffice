@@ -1,3 +1,5 @@
 venv/*
 __pycache__/*
-data.db
+data/*
+daily_html/*
+detail_html/*

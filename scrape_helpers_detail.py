@@ -47,6 +47,10 @@ def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, 
     """
     <td>September 6th, 2024 (Wide) by <a href="/market/distributor/Warner-Bros">Warner Bros.</a><br>September 6th, 2024 (IMAX) by <a href="/market/distributor/Warner-Bros">Warner Bros.</a></td>
     """
+    """
+    <tr><td><b>Domestic Releases:</b></td>
+    <td>2022 (Canceled) by <a href="/market/distributor/STX-Entertainment">STX Entertainment</a><br>March 3rd, 2023 (Wide) by <a href="/market/distributor/Lionsgate">Lionsgate</a></td></tr>
+    """
 
     # need to get the date and the type of release for each of the possible releases, so would want to split by <br> tags and then use a regex
     # get the html as text
@@ -78,7 +82,11 @@ def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, 
                 .replace("rd,", "")
             )
 
-            date = datetime.datetime.strptime(date_string_cleaned, "%B %d %Y").date()
+            try:
+                date = datetime.datetime.strptime(date_string_cleaned, "%B %d %Y").date()
+            except ValueError:
+                print("Error parsing date")
+                continue
             type = match.group(2)
 
             database_releases.append((date, type))
@@ -122,7 +130,7 @@ def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
     # print(match)
 
     if match is not None:
-        mpaa_rating_reason = match.group(2)
+        mpaa_rating_reason = match.group(3)
 
         # print(mpaa_rating_reason)
 

@@ -54,4 +54,4 @@ def get_theaters(column: bs4.element.Tag) -> int:
     try: # sometimes there is an empty theater count
         return int(column.text.replace(",", ""))
     except ValueError:
-        return 0
+        return -1

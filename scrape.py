@@ -36,8 +36,8 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 }
 
-START_DATE: datetime.date = datetime.date(2010, 1, 1)
-END_DATE: datetime.date = datetime.date(2015, 1, 1)
+START_DATE: datetime.date = datetime.date(2004, 1, 1)
+END_DATE: datetime.date = datetime.date(2010, 1, 1)
 
 
 def date_range(start_date: datetime.date, end_date: datetime.date):

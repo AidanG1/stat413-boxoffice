@@ -132,6 +132,9 @@ def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
     if match is not None:
         mpaa_rating_reason = match.group(3)
 
+        if mpaa_rating_reason.endswith("</td>"):
+            mpaa_rating_reason = mpaa_rating_reason[:-5]
+
         # print(mpaa_rating_reason)
 
         raw = r"\((.*), (.*)\)"

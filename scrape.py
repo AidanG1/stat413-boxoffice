@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import datetime
 import re
 import requests
-from db import sqlite_db_connect, sqlite_db as db, Movie
+from db import sqlite_db_connect, sqlite_db as db, Movie, DomesticRelease, BoxOfficeDay, Franchise, Keyword, ProductionCompany, ProductionCountry, CastOrCrew, MovieFranchise, MovieKeyword, MovieProductionCompany, MovieProductionCountry, Language, MovieLanguage
 
 base_url: str = "https://the-numbers.com/box-office-chart/daily/"
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
         response = requests.get(
             f"{base_url}{date.year}/{date.month:02}/{date.day:02}", headers=headers
         )
-        print(response.text)
+        # print(response.text)
 
         soup = BeautifulSoup(response.text, "html.parser")
 
@@ -48,7 +48,6 @@ if __name__ == "__main__":
 
         for row in rows:
             columns = row.find_all("td")
-            print(columns)
             break
 
         # the third column is the movie title
@@ -92,7 +91,7 @@ if __name__ == "__main__":
         movie = Movie.get_or_none(slug=slug)
 
         if movie is None:
-            r = requests.get(f"https://the-numbers.com{slug}", headers=headers)
+            r = requests.get(f"https://the-numbers.com/movie/{slug}", headers=headers)
 
             soup = BeautifulSoup(r.text, "html.parser")
 
@@ -123,14 +122,23 @@ if __name__ == "__main__":
 
             # find a h2 with text "Movie Details"
 
-            movie_details = main.find("h2", text="Movie Details")
+            movie_details = main.find_all("h2")
+
+            for h2 in movie_details:
+                if h2.text == "Movie Details":
+                    break
 
             # find the table that follows the h2
-            table = movie_details.find_next("table")
+            table = h2.find_next("table")
 
             tbody = table.find("tbody")
 
-            rows = tbody.find_all("tr")
+            # tbody can be done, in which case the rows are just inside the <table />
+
+            if tbody is None:
+                rows = table.find_all("tr")
+            else:
+                rows = tbody.find_all("tr")
 
             first_row = rows[0]
 
@@ -144,7 +152,7 @@ if __name__ == "__main__":
             html = str(second_column)
 
             # split by <br> tags
-            releases = html.split("<br>")
+            releases = html.split("<br/>")
 
             # regex to get the date and the distributor
             # September 6th, 2024 (Wide) by <a href="/market/distributor/Warner-Bros">Warner Bros.</a>
@@ -154,10 +162,18 @@ if __name__ == "__main__":
                 match = re.match(raw, release)
 
                 if match is not None:
-                    date = datetime.datetime.strptime(match.group(1), "%B %d, %Y").date()
+                    group_1 = match.group(1)
+
+                    # check if <td> is at the beginning
+                    if group_1.startswith("<td>"):
+                        group_1 = group_1[4:]
+
+                    date_string_cleaned = group_1.replace('th', '').replace('st', '').replace('nd', '').replace('rd', '')
+
+                    date = datetime.datetime.strptime(date_string_cleaned, "%B %d, %Y").date()
                     type = match.group(2)
 
-                    db.DomesticRelease.create(date=date, type=type, movie=movie)
+                    DomesticRelease.create(date=date, type=type, movie=movie)
 
             third_row = rows[2]
 
@@ -212,10 +228,10 @@ if __name__ == "__main__":
 
 
             # check if the franchise is already in the database
-            franchise = db.Franchise.get_or_none(slug=franchise_slug)
+            franchise = Franchise.get_or_none(slug=franchise_slug)
 
             if franchise is None:
-                franchise = db.Franchise.create(name=franchise, slug=franchise_slug)
+                franchise = Franchise.create(name=franchise, slug=franchise_slug)
 
             eighth_row = rows[7]
 
@@ -240,12 +256,12 @@ if __name__ == "__main__":
                     keyword_slug = match.group(1)
 
                 # check if the keyword is already in the database
-                keyword = db.Keyword.get_or_none(slug=keyword_slug)
+                keyword = Keyword.get_or_none(slug=keyword_slug)
 
                 if keyword is None:
-                    keyword = db.Keyword.create(name=keyword_name, slug=keyword_slug)
+                    keyword = Keyword.create(name=keyword_name, slug=keyword_slug)
 
-                db.MovieKeyword.create(movie=movie, keyword=keyword)
+                MovieKeyword.create(movie=movie, keyword=keyword)
 
             ninth_row = rows[8]
             """
@@ -299,12 +315,12 @@ if __name__ == "__main__":
                     production_company_slug = match.group(1)
 
                 # check if the production company is already in the database
-                production_company = db.ProductionCompany.get_or_none(slug=production_company_slug)
+                production_company = ProductionCompany.get_or_none(slug=production_company_slug)
 
                 if production_company is None:
-                    production_company = db.ProductionCompany.create(name=production_company_name, slug=production_company_slug)
+                    production_company = ProductionCompany.create(name=production_company_name, slug=production_company_slug)
 
-                db.MovieProductionCompany.create(movie=movie, production_company=production_company)
+                MovieProductionCompany.create(movie=movie, production_company=production_company)
 
             fourteenth_row = rows[13]
 
@@ -329,12 +345,12 @@ if __name__ == "__main__":
                     production_country_slug = match.group(1)
 
                 # check if the production country is already in the database
-                production_country = db.ProductionCountry.get_or_none(slug=production_country_slug)
+                production_country = ProductionCountry.get_or_none(slug=production_country_slug)
 
                 if production_country is None:
-                    production_country = db.ProductionCountry.create(name=production_country_name, slug=production_country_slug)
+                    production_country = ProductionCountry.create(name=production_country_name, slug=production_country_slug)
 
-                db.MovieProductionCountry.create(movie=movie, production_country=production_country)
+                MovieProductionCountry.create(movie=movie, production_country=production_country)
 
             fifteenth_row = rows[14]
             """
@@ -358,15 +374,15 @@ if __name__ == "__main__":
                     language_slug = match.group(1)
 
                 # check if the language is already in the database
-                language = db.Language.get_or_none(slug=language_slug)
+                language = Language.get_or_none(slug=language_slug)
 
                 if language is None:
-                    language = db.Language.create(name=language_name, slug=language_slug)
+                    language = Language.create(name=language_name, slug=language_slug)
 
-                db.MovieLanguage.create(movie=movie, language=language)
+                MovieLanguage.create(movie=movie, language=language)
 
             # now we make the movie
-            movie = db.Movie.create(
+            movie = Movie.create(
                 truncated_title=movie_truncated_title,
                 slug=slug,
                 title=title,
@@ -383,9 +399,9 @@ if __name__ == "__main__":
                 distributor_slug=distributor_slug
             )
 
-            db.MovieFranchise.create(movie=movie, franchise=franchise)
+            MovieFranchise.create(movie=movie, franchise=franchise)
 
-            db.BoxOfficeDay.create(
+            BoxOfficeDay.create(
                 date=date,
                 movie=movie,
                 gross=gross,
@@ -552,6 +568,11 @@ if __name__ == "__main__":
 <p>The bold credits above the line are the "above-the-line" credits, the other the "below-the-line" credits.
  	</p></div>
                 """
+                if cast_and_crew is None:
+                    print(f"No div with id cast-and-crew_mobile")
+                    continue
+
+
                 cast_new_divs = cast_and_crew.find_all("div", {"class": "cast_new"})
 
                 for cast_new_div in cast_new_divs:
@@ -571,7 +592,7 @@ if __name__ == "__main__":
                                 name = columns[0].find("a").text
                                 role = columns[1].text
 
-                                db.CastOrCrew.create(name=name, role=role, is_cast=True, is_lead_ensemble=True, movie=movie)
+                                CastOrCrew.create(name=name, role=role, is_cast=True, is_lead_ensemble=True, movie=movie)
 
                         if h1.text == "Supporting Cast":
                             table = cast_new_div.find("table")
@@ -586,7 +607,7 @@ if __name__ == "__main__":
                                 name = columns[0].find("a").text
                                 role = columns[1].text
 
-                                db.CastOrCrew.create(name=name, role=role, is_cast=True, is_lead_ensemble=False, movie=movie)
+                                CastOrCrew.create(name=name, role=role, is_cast=True, is_lead_ensemble=False, movie=movie)
 
                         if h1.text == "Cameos":
                             table = cast_new_div.find("table")
@@ -601,7 +622,7 @@ if __name__ == "__main__":
                                 name = columns[0].find("a").text
                                 role = columns[1].text
 
-                                db.CastOrCrew.create(name=name, role=role, is_cast=False, is_lead_ensemble=False, movie=movie)
+                                CastOrCrew.create(name=name, role=role, is_cast=False, is_lead_ensemble=False, movie=movie)
 
                         if h1.text == "Production and Technical Credits":
                             table = cast_new_div.find("table")
@@ -616,10 +637,12 @@ if __name__ == "__main__":
                                 name = columns[0].find("a").text
                                 role = columns[1].text
 
-                                db.CastOrCrew.create(name=name, role=role, is_cast=False, is_lead_ensemble=False, movie=movie)
+                                CastOrCrew.create(name=name, role=role, is_cast=False, is_lead_ensemble=False, movie=movie)
+
+
 
         else:
-            db.BoxOfficeDay.create(
+            BoxOfficeDay.create(
                 date=date,
                 movie=movie,
                 gross=gross,

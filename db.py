@@ -1,6 +1,6 @@
 from peewee import *
 
-base_db_path: str = "data.db"
+base_db_path: str = "data/data.db"
 
 sqlite_db = SqliteDatabase(
     base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64}
@@ -44,11 +44,12 @@ class Franchise(BaseModel):
         constraints = [SQL("UNIQUE (slug)")]
 
 
-class CastOrCrew(BaseModel):
+class Language(BaseModel):
     name = CharField()
-    role = CharField()
-    is_cast = BooleanField()
-    is_lead_ensemble = BooleanField()
+    code = CharField()
+
+    class Meta:
+        constraints = [SQL("UNIQUE (code)")]
 
 
 class Movie(BaseModel):
@@ -72,6 +73,14 @@ class Movie(BaseModel):
         constraints = [SQL("UNIQUE (slug)")]
 
 
+class CastOrCrew(BaseModel):
+    name = CharField()
+    role = CharField()
+    is_cast = BooleanField()
+    is_lead_ensemble = BooleanField()
+    movie = ForeignKeyField(Movie,backref="cast_or_crew")
+
+
 class MovieFranchise(BaseModel):
     movie = ForeignKeyField(Movie, backref="franchises")
     franchise = ForeignKeyField(Franchise, backref="movies")
@@ -92,11 +101,6 @@ class MovieProductionCountry(BaseModel):
     production_country = ForeignKeyField(ProductionCountry, backref="movies")
 
 
-class MovieCastOrCrew(BaseModel):
-    movie = ForeignKeyField(Movie, backref="cast_or_crew")
-    cast_or_crew = ForeignKeyField(CastOrCrew, backref="movies")
-
-
 class DomesticRelease(BaseModel):
     date = DateField()
     type = CharField()
@@ -109,11 +113,17 @@ class BoxOfficeDay(BaseModel):
     theaters = IntegerField()
     movie = ForeignKeyField(Movie, backref="box_office_days")
 
+
+class MovieLanguage(BaseModel):
+    movie = ForeignKeyField(Movie, backref="languages")
+    language = ForeignKeyField(Language, backref="movies")
+
+
 def sqlite_db_connect():
     if sqlite_db.connect():
-        return True
-    else:
-        sqlite_db.init('boxoffice')
+        # check if the tables exist
+        if sqlite_db.table_exists(Movie):
+            return True
 
         sqlite_db.create_tables(
             [
@@ -127,11 +137,35 @@ def sqlite_db_connect():
                 MovieKeyword,
                 MovieProductionCompany,
                 MovieProductionCountry,
-                MovieCastOrCrew,
                 DomesticRelease,
                 BoxOfficeDay,
+                Language,
+                MovieLanguage,
             ],
             safe=True,
         )
 
+    else:
+        sqlite_db.init(base_db_path)
+
         sqlite_db.connect()
+
+        sqlite_db.create_tables(
+            [
+                Keyword,
+                ProductionCompany,
+                ProductionCountry,
+                Franchise,
+                CastOrCrew,
+                Movie,
+                MovieFranchise,
+                MovieKeyword,
+                MovieProductionCompany,
+                MovieProductionCountry,
+                DomesticRelease,
+                BoxOfficeDay,
+                Language,
+                MovieLanguage,
+            ],
+            safe=True,
+        )

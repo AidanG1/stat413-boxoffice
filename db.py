@@ -14,23 +14,34 @@ class BaseModel(Model):
 
 class Keyword(BaseModel):
     name = CharField()
+    slug = CharField()
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class ProductionCompany(BaseModel):
+    slug = CharField()
     name = CharField()
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class ProductionCountry(BaseModel):
+    slug = CharField()
     name = CharField()
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class Franchise(BaseModel):
     name = CharField()
-    description = TextField()
+    slug = CharField()
 
-
-class Language(BaseModel):
-    name = CharField()
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class CastOrCrew(BaseModel):
@@ -41,6 +52,8 @@ class CastOrCrew(BaseModel):
 
 
 class Movie(BaseModel):
+    truncated_title = CharField()
+    slug = CharField()
     title = CharField()
     poster = CharField()
     synopsis = TextField()
@@ -52,6 +65,11 @@ class Movie(BaseModel):
     production_method = CharField()
     creative_type = CharField()
     distributor = CharField()
+    distributor_slug = CharField()
+    language = CharField()
+
+    class Meta:
+        constraints = [SQL("UNIQUE (slug)")]
 
 
 class MovieFranchise(BaseModel):
@@ -74,11 +92,6 @@ class MovieProductionCountry(BaseModel):
     production_country = ForeignKeyField(ProductionCountry, backref="movies")
 
 
-class MovieLanguage(BaseModel):
-    movie = ForeignKeyField(Movie, backref="languages")
-    language = ForeignKeyField(Language, backref="movies")
-
-
 class MovieCastOrCrew(BaseModel):
     movie = ForeignKeyField(Movie, backref="cast_or_crew")
     cast_or_crew = ForeignKeyField(CastOrCrew, backref="movies")
@@ -95,3 +108,30 @@ class BoxOfficeDay(BaseModel):
     revenue = IntegerField()
     theaters = IntegerField()
     movie = ForeignKeyField(Movie, backref="box_office_days")
+
+def sqlite_db_connect():
+    if sqlite_db.connect():
+        return True
+    else:
+        sqlite_db.init('boxoffice')
+
+        sqlite_db.create_tables(
+            [
+                Keyword,
+                ProductionCompany,
+                ProductionCountry,
+                Franchise,
+                CastOrCrew,
+                Movie,
+                MovieFranchise,
+                MovieKeyword,
+                MovieProductionCompany,
+                MovieProductionCountry,
+                MovieCastOrCrew,
+                DomesticRelease,
+                BoxOfficeDay,
+            ],
+            safe=True,
+        )
+
+        sqlite_db.connect()

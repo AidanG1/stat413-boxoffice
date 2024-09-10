@@ -71,10 +71,12 @@ class Movie(BaseModel):
     truncated_title = CharField()
     slug = CharField(index=True)
     title = CharField()
+    release_year = IntegerField()
     poster = CharField(null=True)  # numbers doesn't have posters for some movies
     synopsis = TextField()
     mpaa_rating = CharField()
-    mpaa_rating_reason = CharField()
+    mpaa_rating_reason = CharField(null=True)
+    mpaa_rating_date = DateField(null=True)
     running_time = IntegerField()
     source = CharField()
     genre = CharField()

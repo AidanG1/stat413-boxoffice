@@ -174,7 +174,12 @@ def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):
 
                 rows = table.find_all("tr")
 
+                # print("Rows:")
+                # print(rows)
+
                 for row in rows:
+                    # print("Row:")
+                    # print(row)
                     columns = row.find_all("td")
 
                     name = columns[0].find("a").text
@@ -192,7 +197,13 @@ def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):
                     if db_person is None:
                         db_person = Person.create(name=name, slug=name_slug)
 
-                    role = columns[1].text
+                    # print(columns)
+                    # print(columns[0])
+                    # print(columns[1])
+
+                    role = columns[2].text
+
+                    # print("Role:", role)
 
                     CastOrCrew.create(
                         person=db_person,

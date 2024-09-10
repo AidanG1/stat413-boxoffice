@@ -2,7 +2,26 @@ from bs4 import BeautifulSoup
 import datetime
 import requests
 import os
-from db import sqlite_db_connect, sqlite_db as db, Movie, DomesticRelease, BoxOfficeDay, Franchise, Keyword, ProductionCompany, ProductionCountry, CastOrCrew, MovieFranchise, MovieKeyword, MovieProductionCompany, MovieProductionCountry, Language, MovieLanguage, Distributor, MovieDistributor
+from db import (
+    sqlite_db_connect,
+    sqlite_db as db,
+    Movie,
+    DomesticRelease,
+    BoxOfficeDay,
+    Franchise,
+    Keyword,
+    ProductionCompany,
+    ProductionCountry,
+    CastOrCrew,
+    MovieFranchise,
+    MovieKeyword,
+    MovieProductionCompany,
+    MovieProductionCountry,
+    Language,
+    MovieLanguage,
+    Distributor,
+    MovieDistributor,
+)
 from scrape_helpers_daily import *
 from scrape_helpers_detail import *
 from scrape_helpers_cast import *
@@ -32,7 +51,7 @@ if __name__ == "__main__":
     sqlite_db_connect()
     for date in daterange(start_date, end_date):
         start_time = time.time()
-        print('Scraping for date:', date)
+        print("Scraping for date:", date)
 
         response = requests.get(
             f"{base_url}{date.year}/{date.month:02}/{date.day:02}", headers=headers
@@ -60,7 +79,7 @@ if __name__ == "__main__":
 
         rows = tbody.find_all("tr")
 
-        print('Found', len(rows), 'rows')
+        print("Found", len(rows), "rows")
 
         for row in rows:
             columns = row.find_all("td")
@@ -82,7 +101,9 @@ if __name__ == "__main__":
             db_distributor = Distributor.get_or_none(slug=distributor_name_slug.slug)
 
             if db_distributor is None:
-                db_distributor = Distributor.create(name=distributor_name_slug.name, slug=distributor_name_slug.slug)
+                db_distributor = Distributor.create(
+                    name=distributor_name_slug.name, slug=distributor_name_slug.slug
+                )
 
             # fifth column is the gross
             gross = get_gross(columns[4])
@@ -99,13 +120,20 @@ if __name__ == "__main__":
                 print(f"Scraping for {movie_name_slug.name}")
 
                 if os.path.exists(f"{detail_html_dir}/{movie_name_slug.slug}.html"):
-                    with open(f"{detail_html_dir}/{movie_name_slug.slug}.html", "r") as f:
+                    with open(
+                        f"{detail_html_dir}/{movie_name_slug.slug}.html", "r"
+                    ) as f:
                         text = f.read()
 
                 else:
-                    r = requests.get(f"https://the-numbers.com/movie/{movie_name_slug.slug}", headers=headers)
+                    r = requests.get(
+                        f"https://the-numbers.com/movie/{movie_name_slug.slug}",
+                        headers=headers,
+                    )
 
-                    with open(f"{detail_html_dir}/{movie_name_slug.slug}.html", "w") as f:
+                    with open(
+                        f"{detail_html_dir}/{movie_name_slug.slug}.html", "w"
+                    ) as f:
                         f.write(r.text)
                     text = r.text
 
@@ -127,7 +155,11 @@ if __name__ == "__main__":
                     print(f"No h1 in div with id main")
                     continue
 
-                title = h1.text
+                # Blade (1998)
+                # Dìdi (弟弟) (2024)
+                combined_title_split = h1.text.split(" (")
+                title = ' ('.join(combined_title_split[:-1])
+                release_year = int(combined_title_split[-1].replace(")", ""))
 
                 poster_url = get_poster_url(main)
 
@@ -166,20 +198,22 @@ if __name__ == "__main__":
 
                     # print(row_title)
 
-                    if row_title == 'Domestic Releases:':
+                    if row_title == "Domestic Releases:":
                         domestic_releases = get_domestic_releases(columns[1])
-                    if row_title == 'MPAA Rating:':
+                    if row_title == "MPAA Rating:":
                         mpaa_rating = get_mpaa_rating(columns[1])
-                    if row_title == 'Running Time:':
+                    if row_title == "Running Time:":
                         running_time = get_running_time(columns[1])
-                    if row_title == 'Franchise:':
+                    if row_title == "Franchise:":
                         franchise = get_franchise(columns[1])
                         db_franchise = None
                         if franchise is not None:
                             db_franchise = Franchise.get_or_none(slug=franchise.slug)
                             if db_franchise is None:
-                                db_franchise = Franchise.create(name=franchise.name, slug=franchise.slug)
-                    if row_title == 'Keywords:':
+                                db_franchise = Franchise.create(
+                                    name=franchise.name, slug=franchise.slug
+                                )
+                    if row_title == "Keywords:":
                         keywords = get_keywords(columns[1])
 
                         database_keywords: list[Keyword] = []
@@ -187,51 +221,71 @@ if __name__ == "__main__":
                         for keyword in keywords:
                             db_keyword = Keyword.get_or_none(slug=keyword.slug)
                             if not db_keyword:
-                                db_keyword = Keyword.create(name=keyword.name, slug=keyword.slug)
+                                db_keyword = Keyword.create(
+                                    name=keyword.name, slug=keyword.slug
+                                )
                                 database_keywords.append(db_keyword)
                             else:
                                 database_keywords.append(db_keyword)
-                    if row_title == 'Source:':
+                    if row_title == "Source:":
                         source = get_link_text(columns[1])
-                    if row_title == 'Genre:':
+                    if row_title == "Genre:":
                         genre = get_link_text(columns[1])
-                    if row_title == 'Production Method:':
+                    if row_title == "Production Method:":
                         production_method = get_link_text(columns[1])
-                    if row_title == 'Creative Type:':
+                    if row_title == "Creative Type:":
                         creative_type = get_link_text(columns[1])
-                    if row_title == 'Production/Financing Companies:':
+                    if row_title == "Production/Financing Companies:":
                         production_companies = get_production_companies(columns[1])
 
-                        print(production_companies)
+                        # print(production_companies)
 
                         database_production_companies: list[ProductionCompany] = []
 
                         for production_company in production_companies:
                             # check if the production company is already in the database
-                            db_production_company = ProductionCompany.get_or_none(slug=production_company.slug)
+                            db_production_company = ProductionCompany.get_or_none(
+                                slug=production_company.slug
+                            )
 
                             if db_production_company is None:
-                                db_production_company = ProductionCompany.create(name=production_company.name, slug=production_company.slug)
-                                database_production_companies.append(db_production_company)
+                                db_production_company = ProductionCompany.create(
+                                    name=production_company.name,
+                                    slug=production_company.slug,
+                                )
+                                database_production_companies.append(
+                                    db_production_company
+                                )
                             else:
-                                database_production_companies.append(db_production_company)
+                                database_production_companies.append(
+                                    db_production_company
+                                )
 
-                    if row_title == 'Production Countries:':
+                    if row_title == "Production Countries:":
                         production_countries = get_production_countries(columns[1])
 
                         database_production_countries: list[ProductionCountry] = []
 
                         for production_country in production_countries:
                             # check if the production country is already in the database
-                            db_production_country = ProductionCountry.get_or_none(slug=production_country.slug)
+                            db_production_country = ProductionCountry.get_or_none(
+                                slug=production_country.slug
+                            )
 
                             if db_production_country is None:
-                                db_production_country = ProductionCountry.create(name=production_country.name, slug=production_country.slug)
-                                database_production_countries.append(db_production_country)
+                                db_production_country = ProductionCountry.create(
+                                    name=production_country.name,
+                                    slug=production_country.slug,
+                                )
+                                database_production_countries.append(
+                                    db_production_country
+                                )
                             else:
-                                database_production_countries.append(db_production_country)
+                                database_production_countries.append(
+                                    db_production_country
+                                )
 
-                    if row_title == 'Languages:':
+                    if row_title == "Languages:":
                         languages = get_languages(columns[1])
 
                         database_languages: list[Language] = []
@@ -244,20 +298,27 @@ if __name__ == "__main__":
                             db_language = Language.get_or_none(slug=language_slug)
 
                             if db_language is None:
-                                db_language = Language.create(name=language_name, slug=language_slug)
+                                db_language = Language.create(
+                                    name=language_name, slug=language_slug
+                                )
                                 database_languages.append(db_language)
                             else:
                                 database_languages.append(db_language)
+
+                if mpaa_rating is None:
+                    raise ValueError("MPAA Rating is None")            
 
                 # now we make the movie
                 movie = Movie.create(
                     truncated_title=movie_name_slug.name,
                     slug=movie_name_slug.slug,
                     title=title,
+                    release_year=release_year,
                     poster=poster_url,
                     synopsis=synopsis,
                     mpaa_rating=mpaa_rating.rating,
                     mpaa_rating_reason=mpaa_rating.reason,
+                    mpaa_rating_date=mpaa_rating.rating_date,
                     running_time=running_time,
                     source=source,
                     genre=genre,
@@ -277,22 +338,25 @@ if __name__ == "__main__":
                     MovieLanguage.create(movie=movie, language=language)
 
                 for production_country in database_production_countries:
-                    MovieProductionCountry.create(movie=movie, production_country=production_country)
+                    MovieProductionCountry.create(
+                        movie=movie, production_country=production_country
+                    )
 
                 for production_company in database_production_companies:
-                    MovieProductionCompany.create(movie=movie, production_company=production_company)
+                    MovieProductionCompany.create(
+                        movie=movie, production_company=production_company
+                    )
 
                 for keyword in database_keywords:
                     MovieKeyword.create(movie=movie, keyword=keyword)
 
                 for release in domestic_releases:
-                    DomesticRelease.create(date=release[0], type=release[1], movie=movie)
+                    DomesticRelease.create(
+                        date=release[0], type=release[1], movie=movie
+                    )
 
                 BoxOfficeDay.create(
-                    date=date,
-                    movie=movie,
-                    revenue=gross,
-                    theaters=theaters
+                    date=date, movie=movie, revenue=gross, theaters=theaters
                 )
 
                 # now need to get the cast and crew
@@ -306,18 +370,11 @@ if __name__ == "__main__":
                     print(f"cast_and_crew is not a Tag")
                     continue
 
-
                 get_cast_crew(cast_and_crew, movie)
 
             else:
                 BoxOfficeDay.create(
-                    date=date,
-                    movie=movie,
-                    revenue=gross,
-                    theaters=theaters
-                )          
-        
-        print('Time taken:', time.time() - start_time)
+                    date=date, movie=movie, revenue=gross, theaters=theaters
+                )
 
-
-
+        print("Time taken:", time.time() - start_time)

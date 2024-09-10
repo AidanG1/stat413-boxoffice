@@ -4,6 +4,7 @@ import re
 from typing import NamedTuple
 from scrape_helpers_daily import NameSlug
 
+
 def get_poster_url(main: bs4.element.Tag) -> str | None:
     poster_div = main.find("div", {"id": "poster"})
 
@@ -21,6 +22,7 @@ def get_poster_url(main: bs4.element.Tag) -> str | None:
 
     return poster_url
 
+
 def get_synopsis(main: bs4.element.Tag) -> str | None:
     mobile_layout = main.find("div", {"id": "mobile_layout"})
     accordion = mobile_layout.find("div", {"id": "accordion"})
@@ -36,16 +38,17 @@ def get_synopsis(main: bs4.element.Tag) -> str | None:
 
     # they all start with Synopsis so remove that
     if synopsis.startswith("Synopsis"):
-        synopsis = synopsis[9:]
+        synopsis = synopsis[8:]
 
     return synopsis
+
 
 def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, str]]:
     """
     <td>September 6th, 2024 (Wide) by <a href="/market/distributor/Warner-Bros">Warner Bros.</a><br>September 6th, 2024 (IMAX) by <a href="/market/distributor/Warner-Bros">Warner Bros.</a></td>
     """
 
-    # need to get the date and the type of release for each of the possible releases, so would want to split by <br> tags and then use a regex   
+    # need to get the date and the type of release for each of the possible releases, so would want to split by <br> tags and then use a regex
     # get the html as text
     html = str(column)
 
@@ -68,18 +71,26 @@ def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, 
             if group_1.startswith("<td>"):
                 group_1 = group_1[4:]
 
-            date_string_cleaned = group_1.replace('th,', '').replace('st,', '').replace('nd,', '').replace('rd,', '')
+            date_string_cleaned = (
+                group_1.replace("th,", "")
+                .replace("st,", "")
+                .replace("nd,", "")
+                .replace("rd,", "")
+            )
 
             date = datetime.datetime.strptime(date_string_cleaned, "%B %d %Y").date()
             type = match.group(2)
 
             database_releases.append((date, type))
-    
+
     return database_releases
+
 
 class MPAA(NamedTuple):
     rating: str
-    reason: str
+    reason: str | None
+    rating_date: datetime.date | None
+
 
 def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
     """
@@ -88,21 +99,48 @@ def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
     # want to get the mpaa rating and the reason for the rating
     html = str(column)
 
+    a_tag = column.find("a")
+
+    if a_tag is None:
+        return None
+    
+    mpaa_rating = a_tag.text
+
     # split by <br> tags
-    rating_and_reason = html.split("<br>")
+    rating_and_reason = html.split("<br/>")
     rating = rating_and_reason[0]
 
     # regex to get the rating and the reason
-    raw = r"<a href=\"/market/mpaa-rating/(.*)\">(.*)</a> for (.*)"
+    raw = r'<td><a href="\/market\/mpaa-rating\/(.*)">(.*)<\/a> for (.*)'
+
+    # print(rating_and_reason)
 
     match = re.match(raw, rating)
 
-    if match is not None:
-        mpaa_rating = match.group(2)
-        mpaa_rating_reason = match.group(3)
+    # print(rating)
+    # print(raw)
+    # print(match)
 
-        return MPAA(rating=mpaa_rating, reason=mpaa_rating_reason)
-    
+    if match is not None:
+        mpaa_rating_reason = match.group(2)
+
+        # print(mpaa_rating_reason)
+
+        raw = r"\((.*), (.*)\)"
+
+        if len(rating_and_reason) < 2:
+            return MPAA(rating=mpaa_rating, reason=mpaa_rating_reason, rating_date=None)
+
+        match = re.match(raw, rating_and_reason[1])
+
+        if match is not None:
+            rating_date = datetime.datetime.strptime(match.group(2), "%m/%d/%Y").date()
+
+            return MPAA(rating=mpaa_rating, reason=mpaa_rating_reason, rating_date=rating_date)
+        
+    return MPAA(rating=mpaa_rating, reason=None, rating_date=None)
+
+
 def get_running_time(column: bs4.element.Tag) -> int | None:
     """
     <td>144 minutes</td>
@@ -111,9 +149,11 @@ def get_running_time(column: bs4.element.Tag) -> int | None:
 
     return int(split_text[0])
 
+
 def get_franchise(column: bs4.element.Tag) -> NameSlug | None:
     """
-    <td><a href="/market/franchise/Beetlejuice">Beetlejuice</a></td>
+    <tr><td><b>Franchise:</b></td>
+    <td><a href="/movies/franchise/Twister">Twister</a></td></tr>
     """
     franchise = column.find("a")
 
@@ -121,13 +161,26 @@ def get_franchise(column: bs4.element.Tag) -> NameSlug | None:
         return None
 
     franchise_name = franchise.text
-    franchise_slug = franchise["href"].replace("/market/franchise/", "")
+    franchise_slug: str = franchise["href"]
 
-    return NameSlug(name=franchise_name, slug=franchise_slug)
+    raw = r"\/movies\/franchise\/(.*)"
+
+    # print(franchise_slug)
+
+    match = re.match(raw, franchise_slug)
+
+    # print(match)
+
+    if match is not None:
+        franchise_slug = match.group(1)
+
+        return NameSlug(name=franchise_name, slug=franchise_slug)
+
 
 def get_keywords(column: bs4.element.Tag) -> list[NameSlug]:
     """
-    <td><a href="/market/keyword/afterlife">afterlife</a>, <a href="/market/keyword/ghost">ghost</a>, <a href="/market/keyword/haunted-house">haunted house</a>, <a href="/market/keyword/sequel">sequel</a>, <a href="/market/keyword/teen-horror">teen horror</a></td>
+    <tr><td><b>Keywords:</b></td>
+    <td><a href="/movies/keywords/Disrupted-by-2023-WGA-and-SAG-Strikes">Disrupted by 2023 WGA &amp; SAG Strikes</a>, <a href="/movies/keywords/Action-Thriller">Action Thriller</a>, <a href="/movies/keywords/Weather">Extreme Weather</a>, <a href="/movies/keywords/Delayed-Sequel">Delayed Sequel</a>, <a href="/movies/keywords/Sequels-Without-Their-Original-Stars">Sequels Without Their Original Stars</a></td></tr>
     """
     keywords = column.find_all("a")
 
@@ -135,11 +188,23 @@ def get_keywords(column: bs4.element.Tag) -> list[NameSlug]:
 
     for keyword in keywords:
         keyword_name = keyword.text
-        keyword_slug = keyword["href"].replace("/market/keyword/", "")
+        keyword_slug = keyword["href"]
 
-        keyword_list.append(NameSlug(name=keyword_name, slug=keyword_slug))
-    
+        raw = r"\/movies\/keywords\/(.*)"
+
+        match = re.match(raw, keyword_slug)
+
+        # print(keyword_slug)
+
+        # print(match)
+
+        if match is not None:
+            keyword_slug = match.group(1)
+
+            keyword_list.append(NameSlug(name=keyword_name, slug=keyword_slug))
+
     return keyword_list
+
 
 def get_link_text(column: bs4.element.Tag) -> str:
     """
@@ -150,13 +215,14 @@ def get_link_text(column: bs4.element.Tag) -> str:
     """
     return column.find("a").text
 
+
 def get_production_companies(column: bs4.element.Tag) -> list[NameSlug]:
     """
     <td><a href="/movies/production-company/Plan-B-Entertainment">Plan B Entertainment</a>, <a href="/movies/production-company/Tim-Burton">Tim Burton</a>, <a href="/movies/production-company/Warner-Bros">Warner Bros.</a>, <a href="/movies/production-company/Domain-Entertainment">Domain Entertainment</a>, <a href="/movies/production-company/Tommy-Harper">Tommy Harper</a>, <a href="/movies/production-company/Marc-Toberoff">Marc Toberoff</a></td>
     """
     production_companies = column.find_all("a")
 
-    print(production_companies)
+    # print(production_companies)
 
     production_company_list: list[NameSlug] = []
 
@@ -171,9 +237,12 @@ def get_production_companies(column: bs4.element.Tag) -> list[NameSlug]:
         if match is not None:
             production_company_slug = match.group(1)
 
-        production_company_list.append(NameSlug(name=production_company_name, slug=production_company_slug))
-    
+        production_company_list.append(
+            NameSlug(name=production_company_name, slug=production_company_slug)
+        )
+
     return production_company_list
+
 
 def get_production_countries(column: bs4.element.Tag) -> list[NameSlug]:
     """
@@ -195,8 +264,9 @@ def get_production_countries(column: bs4.element.Tag) -> list[NameSlug]:
             country_slug = match.group(1)
 
         country_list.append(NameSlug(name=country_name, slug=country_slug))
-    
+
     return country_list
+
 
 def get_languages(column: bs4.element.Tag) -> list[NameSlug]:
     """
@@ -218,5 +288,5 @@ def get_languages(column: bs4.element.Tag) -> list[NameSlug]:
             language_slug = match.group(1)
 
         language_list.append(NameSlug(name=language_name, slug=language_slug))
-    
+
     return language_list

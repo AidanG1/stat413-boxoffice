@@ -10,6 +10,7 @@ def get_movie_title_and_slug(third_column: bs4.element.Tag) -> NameSlug | None:
     third_column_bold = third_column.find("b")
     if third_column_bold is not None:
         movie_truncated_title: str = third_column_bold.text
+
         a_tag = third_column_bold.find("a")
         if a_tag is None:
             return None

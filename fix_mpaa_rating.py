@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     detail_html_dir = "detail_html"
 
-    for filename in os.listdir(detail_html_dir)[2000:]:
+    for filename in os.listdir(detail_html_dir)[:100]:
         slug = filename.split(".")[0]
 
         movie = Movie.get_or_none(slug=slug)

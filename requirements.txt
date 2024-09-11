@@ -1,3 +1,4 @@
 peewee
 requests
 beautifulsoup4
+peewee-migrate # for running the add_budget_migrate command

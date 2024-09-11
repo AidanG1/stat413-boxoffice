@@ -175,6 +175,8 @@ if __name__ == "__main__":
 
                 synopsis = get_synopsis(main)
 
+                budget = get_budget(main)
+
                 # find a h2 with text "Movie Details"
 
                 movie_details = main.find_all("h2")
@@ -326,6 +328,7 @@ if __name__ == "__main__":
                     release_year=release_year,
                     poster=poster_url,
                     synopsis=synopsis,
+                    budget=budget,
                     mpaa_rating=mpaa_rating.rating,
                     mpaa_rating_reason=mpaa_rating.reason,
                     mpaa_rating_date=mpaa_rating.rating_date,

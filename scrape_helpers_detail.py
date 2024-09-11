@@ -301,3 +301,44 @@ def get_languages(column: bs4.element.Tag) -> list[NameSlug]:
         language_list.append(NameSlug(name=language_name, slug=language_slug))
 
     return language_list
+
+def get_budget(main: bs4.element.Tag) -> int | None:
+    mobile_layout = main.find("div", {"id": "mobile_layout"})
+    accordion = mobile_layout.find("div", {"id": "accordion"})
+    card = accordion.find("div", {"class": "card"})
+    summary_mobile = card.find("div", {"id": "summary_mobile"})
+    card_body_div = summary_mobile.find("div", {"class": "card-body"})
+
+    if card_body_div is None:
+        print("No card body div found")
+        return None
+    """
+    <tr><td><b>Production&nbsp;Budget:</b></td><td>$135,000,000 (worldwide box office is 4.2 times production budget)</td></tr>
+    """
+
+    tables = card_body_div.find_all("table")
+
+    metrics_table = tables[1]
+
+    if metrics_table is None:
+        print("No metrics table found")
+        return None
+    
+    rows = metrics_table.find_all("tr")
+
+    # print(rows)
+
+    for row in rows:
+        columns = row.find_all("td")
+
+        if columns[0].text == "Production Budget:":
+            budget = columns[1].text
+
+            raw = r"\$(.*) \(worldwide box office is (.*) times production budget\)"
+
+            match = re.match(raw, budget)
+
+            if match is not None:
+                return int(match.group(1).replace(",", ""))
+            
+    return None

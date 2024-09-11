@@ -82,6 +82,7 @@ class Movie(BaseModel):
     genre = CharField()
     production_method = CharField()
     creative_type = CharField()
+    budget = IntegerField(null=True)
 
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]

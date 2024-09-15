@@ -3,3 +3,4 @@ __pycache__/*
 data/*
 daily_html/*
 detail_html/*
+*.zip

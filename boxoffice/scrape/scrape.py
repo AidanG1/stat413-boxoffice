@@ -6,12 +6,7 @@ from scrape_helpers_daily import *
 from scrape_helpers_detail import *
 from scrape_helpers_cast import *
 import time
-
-import sys
-
-sys.path.append("..")
-
-from db.db import (
+from boxoffice.db.db import (
     sqlite_db_connect,
     Movie,
     DomesticRelease,
@@ -32,16 +27,16 @@ from db.db import (
 
 base_url: str = "https://the-numbers.com/box-office-chart/daily/"
 
-daily_html_dir = "daily_html"
+daily_html_dir = os.path.join(os.path.dirname(__file__), "daily_html")
 
-detail_html_dir = "detail_html"
+detail_html_dir = os.path.join(os.path.dirname(__file__), "detail_html")
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 }
 
 START_DATE: datetime.date = datetime.date(2024, 9, 11)
-END_DATE: datetime.date = datetime.date(2024, 9, 14)
+END_DATE: datetime.date = datetime.date(2024, 9, 15)
 
 
 def date_range(start_date: datetime.date, end_date: datetime.date):
@@ -207,7 +202,7 @@ if __name__ == "__main__":
                 database_production_countries: list[ProductionCountry] = []
                 db_franchise = None
                 mpaa_rating = MPAA("NR", None, None)
-                running_time = -1
+                running_time: int | None = None
 
                 for row in rows:
                     columns = row.find_all("td")

@@ -55,8 +55,8 @@ def get_gross(column: bs4.element.Tag) -> int:
     return int(column.text.replace("$", "").replace(",", ""))
 
 
-def get_theaters(column: bs4.element.Tag) -> int:
+def get_theaters(column: bs4.element.Tag) -> int | None:
     try:  # sometimes there is an empty theater count
         return int(column.text.replace(",", ""))
     except ValueError:
-        return -1
+        return None

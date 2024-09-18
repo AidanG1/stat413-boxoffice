@@ -1,6 +1,6 @@
 *.zip
 **/__pycache__/
-db/data/*
-scrape/daily_html/*
-scrape/detail_html/*
+boxoffice/db/data/*
+boxoffice/scrape/daily_html/*
+boxoffice/scrape/detail_html/*
 venv/*

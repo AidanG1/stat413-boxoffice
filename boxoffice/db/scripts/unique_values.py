@@ -1,9 +1,7 @@
 from db_path import base_db_path
-from db import sqlite_db_connect
+from db import sqlite_db_connect, Movie
 
 sqlite_db_connect()
-
-from db import Movie
 
 unique_values = {
     "creative_type": set(),

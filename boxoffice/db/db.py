@@ -1,5 +1,5 @@
 from peewee import *
-from db_path import base_db_path
+from boxoffice.db.db_path import base_db_path
 
 sqlite_db = SqliteDatabase(
     base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64}
@@ -77,7 +77,9 @@ class Movie(BaseModel):
     mpaa_rating = CharField()
     mpaa_rating_reason = CharField(null=True)
     mpaa_rating_date = DateField(null=True)
-    running_time = IntegerField()
+    running_time = IntegerField(
+        null=True
+    )  # this is -1 in rare cases where the numbers doesn't have data
     source = CharField()
     genre = CharField()
     production_method = CharField()
@@ -125,7 +127,7 @@ class DomesticRelease(BaseModel):
 class BoxOfficeDay(BaseModel):
     date = DateField()
     revenue = IntegerField()
-    theaters = IntegerField()
+    theaters = IntegerField(null=True)
     movie = ForeignKeyField(Movie, backref="box_office_days")
 
     class Meta:

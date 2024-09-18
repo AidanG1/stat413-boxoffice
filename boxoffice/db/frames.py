@@ -1,10 +1,10 @@
+from boxoffice.db.db import sqlite_db_connect, Movie, BoxOfficeDay
+from enum import Enum
+from pandera.errors import SchemaError
+from pandera.typing import DataFrame
+import datetime
 import pandas as pd
 import pandera as pa
-from pandera.typing import DataFrame
-from pandera.errors import SchemaError
-from enum import Enum
-
-from db import sqlite_db_connect, Movie
 
 
 class CREATIVE_TYPE(str, Enum):
@@ -94,7 +94,9 @@ class MovieSchema(pa.DataFrameModel):
     title: str = pa.Field()
     release_year: int = pa.Field(ge=0)
     mpaa_rating: str = pa.Field(isin=MPAA_RATING)
-    running_time: int = pa.Field(ge=-1)  # this can be -1 if the runtime is unknown
+    running_time: int = pa.Field(
+        nullable=True
+    )  # this can be -1 if the runtime is unknown
     synopsis: str = pa.Field()
     mpaa_rating_reason: str = pa.Field(nullable=True)
     budget: float = pa.Field(ge=0, nullable=True, coerce=True)
@@ -104,9 +106,15 @@ class MovieSchema(pa.DataFrameModel):
     source: str = pa.Field(isin=SOURCE)
 
 
-def get_movie_frame() -> DataFrame[MovieSchema] | None:
-    sqlite_db_connect()
+class BoxOfficeDaySchema(pa.DataFrameModel):
+    id: int = pa.Field(ge=0)
+    movie: int = pa.Field(ge=0)
+    date: datetime.date = pa.Field()
+    revenue: int = pa.Field(ge=0)
+    theaters: float = pa.Field(ge=0, nullable=True)
 
+
+def get_movie_frame() -> DataFrame[MovieSchema] | None:
     movies = Movie.select()
 
     try:
@@ -119,8 +127,28 @@ def get_movie_frame() -> DataFrame[MovieSchema] | None:
         return None
 
 
+def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
+    box_office_days = BoxOfficeDay.select()
+
+    try:
+        df = DataFrame[BoxOfficeDaySchema](box_office_days.dicts())
+
+        return df
+
+    except SchemaError as e:
+        print(e)
+        return None
+
+
 if __name__ == "__main__":
+    sqlite_db_connect()
+
     df = get_movie_frame()
 
     if df is not None:
         print(df.head())
+
+    bodf = get_box_office_day_frame()
+
+    if bodf is not None:
+        print(bodf.head())

@@ -1,11 +1,6 @@
 import bs4
 import re
-
-import sys
-
-sys.path.append("..")
-
-from db.db import CastOrCrew, Movie, Person
+from boxoffice.db.db import CastOrCrew, Movie, Person
 
 
 def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):

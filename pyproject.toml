@@ -1,0 +1,8 @@
+[project]
+name = "boxoffice"
+version = "0.1.0"
+description = "Stat 413 Box Office Project"
+
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.2,<4"]

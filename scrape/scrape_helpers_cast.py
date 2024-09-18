@@ -1,6 +1,12 @@
 import bs4
-from db import CastOrCrew, Movie, Person
 import re
+
+import sys
+
+sys.path.append("..")
+
+from db.db import CastOrCrew, Movie, Person
+
 
 def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):
     """
@@ -169,7 +175,12 @@ def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):
         h1 = cast_new_div.find("h1")
 
         if h1 is not None:
-            if h1.text == "Leading Cast" or h1.text == "Supporting Cast" or h1.text == "Cameos" or h1.text == "Production and Technical Credits":
+            if (
+                h1.text == "Leading Cast"
+                or h1.text == "Supporting Cast"
+                or h1.text == "Cameos"
+                or h1.text == "Production and Technical Credits"
+            ):
                 table = cast_new_div.find("table")
 
                 rows = table.find_all("tr")
@@ -208,7 +219,11 @@ def get_cast_crew(cast_and_crew: bs4.element.Tag, movie: Movie):
                     CastOrCrew.create(
                         person=db_person,
                         role=role,
-                        is_cast=True if h1.text != "Production and Technical Credits" else False,
+                        is_cast=(
+                            True
+                            if h1.text != "Production and Technical Credits"
+                            else False
+                        ),
                         is_lead_ensemble=True if h1.text == "Leading Cast" else False,
                         movie=movie,
                     )

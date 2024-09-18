@@ -1,6 +1,6 @@
-venv/*
-__pycache__/*
-data/*
-daily_html/*
-detail_html/*
 *.zip
+**/__pycache__/
+db/data/*
+scrape/daily_html/*
+scrape/detail_html/*
+venv/*

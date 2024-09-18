@@ -1,8 +1,8 @@
+from scrape_helpers_daily import NameSlug
+from typing import NamedTuple
 import bs4
 import datetime
 import re
-from typing import NamedTuple
-from scrape_helpers_daily import NameSlug
 
 
 def get_poster_url(main: bs4.element.Tag) -> str | None:

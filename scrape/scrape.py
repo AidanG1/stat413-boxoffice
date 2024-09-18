@@ -2,9 +2,17 @@ from bs4 import BeautifulSoup
 import datetime
 import requests
 import os
-from db import (
+from scrape_helpers_daily import *
+from scrape_helpers_detail import *
+from scrape_helpers_cast import *
+import time
+
+import sys
+
+sys.path.append("..")
+
+from db.db import (
     sqlite_db_connect,
-    sqlite_db as db,
     Movie,
     DomesticRelease,
     BoxOfficeDay,
@@ -21,10 +29,6 @@ from db import (
     Distributor,
     MovieDistributor,
 )
-from scrape_helpers_daily import *
-from scrape_helpers_detail import *
-from scrape_helpers_cast import *
-import time
 
 base_url: str = "https://the-numbers.com/box-office-chart/daily/"
 
@@ -36,8 +40,8 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 }
 
-START_DATE: datetime.date = datetime.date(2024, 9, 1)
-END_DATE: datetime.date = datetime.date(2024, 9, 12)
+START_DATE: datetime.date = datetime.date(2024, 9, 11)
+END_DATE: datetime.date = datetime.date(2024, 9, 14)
 
 
 def date_range(start_date: datetime.date, end_date: datetime.date):
@@ -168,7 +172,7 @@ if __name__ == "__main__":
                 # Blade (1998)
                 # Dìdi (弟弟) (2024)
                 combined_title_split = h1.text.split(" (")
-                title = ' ('.join(combined_title_split[:-1])
+                title = " (".join(combined_title_split[:-1])
                 release_year = int(combined_title_split[-1].replace(")", ""))
 
                 poster_url = get_poster_url(main)
@@ -202,6 +206,8 @@ if __name__ == "__main__":
                 database_production_companies: list[ProductionCompany] = []
                 database_production_countries: list[ProductionCountry] = []
                 db_franchise = None
+                mpaa_rating = MPAA("NR", None, None)
+                running_time = -1
 
                 for row in rows:
                     columns = row.find_all("td")
@@ -318,7 +324,7 @@ if __name__ == "__main__":
                                 database_languages.append(db_language)
 
                 if mpaa_rating is None:
-                    raise ValueError("MPAA Rating is None")            
+                    raise ValueError("MPAA Rating is None")
 
                 # now we make the movie
                 movie = Movie.create(

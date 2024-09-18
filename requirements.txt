@@ -1,4 +1,15 @@
+# Scrape
 peewee
 requests
 beautifulsoup4
 peewee-migrate # for running the add_budget_migrate command
+
+# Analysis
+pandas
+matplotlib
+scikit-learn
+pandera
+seaborn
+
+# Neatness
+pre-commit

@@ -1,6 +1,10 @@
 from playhouse.migrate import *
 
-from db import sqlite_db
+import sys
+
+sys.path.append("..")
+
+from db.db import sqlite_db
 
 migrator = SqliteMigrator(sqlite_db)
 

@@ -34,6 +34,7 @@ class Person(BaseModel):
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
 
+
 class Distributor(BaseModel):
     name = CharField()
     slug = CharField(index=True)
@@ -134,6 +135,7 @@ class BoxOfficeDay(BaseModel):
 class MovieLanguage(BaseModel):
     movie = ForeignKeyField(Movie, backref="languages")
     language = ForeignKeyField(Language, backref="movies")
+
 
 class MovieDistributor(BaseModel):
     movie = ForeignKeyField(Movie, backref="distributors")

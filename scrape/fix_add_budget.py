@@ -1,10 +1,15 @@
 # I messed up the mpaa rating reason in the database, so go through the movies in detail_html and fix the mpaa rating reason in the database
 
 from bs4 import BeautifulSoup
-from ..db.db import sqlite_db_connect, Movie
 from scrape_helpers_detail import get_budget
 import bs4
 import os
+import sys
+
+sys.path.append("..")
+
+from db.db import Movie, sqlite_db_connect
+
 
 if __name__ == "__main__":
     sqlite_db_connect()

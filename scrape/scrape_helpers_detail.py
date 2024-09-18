@@ -83,7 +83,9 @@ def get_domestic_releases(column: bs4.element.Tag) -> list[tuple[datetime.date, 
             )
 
             try:
-                date = datetime.datetime.strptime(date_string_cleaned, "%B %d %Y").date()
+                date = datetime.datetime.strptime(
+                    date_string_cleaned, "%B %d %Y"
+                ).date()
             except ValueError:
                 print("Error parsing date")
                 continue
@@ -111,7 +113,7 @@ def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
 
     if a_tag is None:
         return None
-    
+
     mpaa_rating = a_tag.text
 
     # split by <br> tags
@@ -147,8 +149,10 @@ def get_mpaa_rating(column: bs4.element.Tag) -> MPAA | None:
         if match is not None:
             rating_date = datetime.datetime.strptime(match.group(2), "%m/%d/%Y").date()
 
-            return MPAA(rating=mpaa_rating, reason=mpaa_rating_reason, rating_date=rating_date)
-        
+            return MPAA(
+                rating=mpaa_rating, reason=mpaa_rating_reason, rating_date=rating_date
+            )
+
     return MPAA(rating=mpaa_rating, reason=None, rating_date=None)
 
 
@@ -302,6 +306,7 @@ def get_languages(column: bs4.element.Tag) -> list[NameSlug]:
 
     return language_list
 
+
 def get_budget(main: bs4.element.Tag) -> int | None:
     mobile_layout = main.find("div", {"id": "mobile_layout"})
     accordion = mobile_layout.find("div", {"id": "accordion"})
@@ -323,7 +328,7 @@ def get_budget(main: bs4.element.Tag) -> int | None:
     if metrics_table is None:
         print("No metrics table found")
         return None
-    
+
     rows = metrics_table.find_all("tr")
 
     # print(rows)
@@ -340,5 +345,5 @@ def get_budget(main: bs4.element.Tag) -> int | None:
 
             if match is not None:
                 return int(match.group(1).replace(",", ""))
-            
+
     return None

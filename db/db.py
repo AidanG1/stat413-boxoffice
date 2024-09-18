@@ -1,5 +1,5 @@
 from peewee import *
-from .db_path import base_db_path
+from db_path import base_db_path
 
 sqlite_db = SqliteDatabase(
     base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64}

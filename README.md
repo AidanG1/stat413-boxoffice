@@ -1,4 +1,4 @@
-Make sure to create and activate a venv and then install the requirements.txt file.
+# Setup
 ```bash
 # clone the repo
 git clone https://github.com/AidanG1/stat413-boxoffice.git
@@ -22,3 +22,8 @@ pip install -e .
 https://rice.app.box.com/folder/284200986903
 
 Find the most recent version of data and rename it as `data.sqlite` and place it in boxoffice/db/data
+
+# Running the code
+```bash
+python boxoffice/analysis/deadpool_graph.py
+```

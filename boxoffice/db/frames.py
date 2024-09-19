@@ -114,13 +114,27 @@ class BoxOfficeDaySchema(pa.DataFrameModel):
     theaters: float = pa.Field(ge=0, nullable=True)
 
 
-def get_movie_frame() -> DataFrame[MovieSchema] | None:
+def get_movie_frame_nv() -> pd.DataFrame | None:
     movies = Movie.select()
 
     try:
-        df = DataFrame[MovieSchema](movies.dicts())
+        df = pd.DataFrame(movies.dicts())
 
         return df
+
+    except SchemaError as e:
+        print(e)
+        return None
+
+
+def get_movie_frame() -> DataFrame[MovieSchema] | None:
+    df = get_movie_frame_nv()
+
+    if df is None:
+        return None
+
+    try:
+        return DataFrame[MovieSchema](df)
 
     except SchemaError as e:
         print(e)

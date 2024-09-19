@@ -6,6 +6,9 @@ git clone https://github.com/AidanG1/stat413-boxoffice.git
 # move into the repo
 cd stat413-boxoffice
 
+# upgrade pip
+pip install --upgrade pip
+
 # create the venv
 python3 -m venv venv
 

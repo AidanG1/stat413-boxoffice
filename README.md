@@ -26,6 +26,10 @@ chmod +x scripts/get_data
 
 # run the script to get the data
 scripts/get_data
+
+# create the kernel so that the jupyter notebooks can use the venv
+python -m ipykernel install --user --name=boxoffice_kernel
+# within each ipynb in vscode, type "ctrl+shift+p" and select "Notebook: Select Notebook Kernel" and select "boxoffice_kernel" from the "Jupyter Kernel..." dropdown
 ```
 
 # Running the code
@@ -33,11 +37,14 @@ scripts/get_data
 python boxoffice/analysis/deadpool_graph.py
 ```
 
-# Committing
-This repository is using pre-commit. This means that sometimes your commits will fail due to formatting issues. Do not worry, the code automatically formats itself. Just re-add the files and commit again.
+# Exploring the database
+Go to this website: https://sqliteviewer.app . Follow the instructions within the website to upload the database file. This file can be found in the stat413-boxoffice/boxoffice/db/data directory.
 
 ### Data Folder
-This folder has the data -> https://rice.app.box.com/folder/284200986903
+This box folder in the cloud has the data -> https://rice.app.box.com/folder/284200986903
+
+# Committing
+This repository is using pre-commit. This means that sometimes your commits will fail due to formatting issues. Do not worry, the code automatically formats itself. Just re-add the files and commit again.
 
 # Advanced
 To update the data_link in the data_link.txt file, use these instructions: https://joelgrayson.com/software/box-download-link-generator

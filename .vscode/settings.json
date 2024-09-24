@@ -3,5 +3,6 @@
         "boxoffice",
         "mpaa",
         "pandera"
-    ]
+    ],
+    "python.analysis.autoImportCompletions": true
 }

@@ -1,15 +1,18 @@
 # Scrape
-peewee
-requests
-beautifulsoup4
-peewee-migrate # for running the add_budget_migrate command
+beautifulsoup4==4.12.3
+peewee-migrate==1.13.0 # for running the add_budget_migrate command
+peewee==3.17.6
+requests==2.32.3
 
 # Analysis
-pandas
-matplotlib
-scikit-learn
-pandera
-seaborn
+ipykernel==6.29.5
+matplotlib==3.9.2
+pandas==2.2.2
+pandera==0.20.4
+scikit-learn==1.5.2
+seaborn==0.13.2
+statsmodels==0.14.3
 
 # Neatness
-pre-commit
+pre-commit==3.8.0
+black==24.8.0

@@ -94,7 +94,7 @@ class MovieSchema(pa.DataFrameModel):
     title: str = pa.Field()
     release_year: int = pa.Field(ge=0)
     mpaa_rating: str = pa.Field(isin=MPAA_RATING)
-    running_time: int = pa.Field(
+    running_time: float = pa.Field(
         nullable=True
     )  # this can be -1 if the runtime is unknown
     synopsis: str = pa.Field()

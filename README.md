@@ -38,7 +38,7 @@ python boxoffice/analysis/deadpool_graph.py
 ```
 
 # Exploring the database
-Go to this website: https://sqliteviewer.app . Follow the instructions within the website to upload the database file. This file can be found in the stat413-boxoffice/boxoffice/db/data directory.
+Go to this website: https://sqliteviewer.app or download this VS Code extension: VSCode extension: https://marketplace.visualstudio.com/items?itemName=qwtel.sqlite-viewer . Follow the instructions within the website to upload the database file. This file can be found in the stat413-boxoffice/boxoffice/db/data directory.
 
 ### Data Folder
 This box folder in the cloud has the data -> https://rice.app.box.com/folder/284200986903

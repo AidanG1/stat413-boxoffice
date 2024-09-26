@@ -13,7 +13,8 @@ pip install --upgrade pip
 python3 -m venv venv
 
 # activate the venv
-source venv/bin/activate
+source venv/bin/activate # for mac or linux
+venv/Scripts/activate # for windows
 
 # install the requirements
 pip install -r requirements.txt
@@ -28,6 +29,7 @@ chmod +x scripts/get_data
 scripts/get_data
 
 # create the kernel so that the jupyter notebooks can use the venv
+# only need to do this on mac or linux
 python -m ipykernel install --user --name=boxoffice_kernel
 # within each ipynb in vscode, type "ctrl+shift+p" and select "Notebook: Select Notebook Kernel" and select "boxoffice_kernel" from the "Jupyter Kernel..." dropdown
 ```

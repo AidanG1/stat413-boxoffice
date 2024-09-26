@@ -127,7 +127,7 @@ def get_movie_frame_nv() -> pd.DataFrame | None:
         return None
 
 
-def get_movie_frame() -> DataFrame[MovieSchema] | None:
+def get_movie_frame_validated() -> DataFrame[MovieSchema] | None:
     df = get_movie_frame_nv()
 
     if df is None:
@@ -139,6 +139,11 @@ def get_movie_frame() -> DataFrame[MovieSchema] | None:
     except SchemaError as e:
         print(e)
         return None
+
+
+def get_movie_frame() -> pd.DataFrame | None:
+    # eventually this will clean the data too
+    return get_movie_frame_nv()
 
 
 def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:

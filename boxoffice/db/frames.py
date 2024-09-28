@@ -114,7 +114,7 @@ class BoxOfficeDaySchema(pa.DataFrameModel):
     theaters: float = pa.Field(ge=0, nullable=True)
 
 
-def get_movie_frame_nv() -> pd.DataFrame | None:
+def get_movie_frame() -> pd.DataFrame | None:
     movies = Movie.select()
 
     try:
@@ -128,7 +128,7 @@ def get_movie_frame_nv() -> pd.DataFrame | None:
 
 
 def get_movie_frame_validated() -> DataFrame[MovieSchema] | None:
-    df = get_movie_frame_nv()
+    df = get_movie_frame()
 
     if df is None:
         return None
@@ -141,9 +141,21 @@ def get_movie_frame_validated() -> DataFrame[MovieSchema] | None:
         return None
 
 
-def get_movie_frame() -> pd.DataFrame | None:
+def get_movie_frame_c() -> pd.DataFrame | None:
     # eventually this will clean the data too
-    return get_movie_frame_nv()
+    frame = get_movie_frame()
+
+    box_office_day_frame = get_box_office_day_frame()
+
+    if frame is None or box_office_day_frame is None:
+        return None
+
+    # do the join with the box office table to get the sum of the revenue
+    sums = box_office_day_frame.groupby("movie")["revenue"].sum()
+
+    frame["total_box_office"] = frame["id"].map(sums)
+
+    return frame
 
 
 def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:

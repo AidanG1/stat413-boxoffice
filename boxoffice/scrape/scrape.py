@@ -36,7 +36,7 @@ headers = {
 }
 
 START_DATE: datetime.date = datetime.date(2024, 9, 11)
-END_DATE: datetime.date = datetime.date(2024, 9, 15)
+END_DATE: datetime.date = datetime.date(2024, 9, 25)
 
 
 def date_range(start_date: datetime.date, end_date: datetime.date):

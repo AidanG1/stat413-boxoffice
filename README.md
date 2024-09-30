@@ -22,11 +22,14 @@ pip install -r requirements.txt
 # install this package itself, this makes all the cool sibling imports work nicely
 pip install -e .
 
+# Option 1 to download data:
 # give permissions to get the data
 chmod +x scripts/get_data
-
 # run the script to get the data
 scripts/get_data
+
+# Option 2 to download data:
+python scripts/get_data.py
 
 # create the kernel so that the jupyter notebooks can use the venv
 # only need to do this on mac or linux

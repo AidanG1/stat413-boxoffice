@@ -35,6 +35,9 @@ python scripts/get_data.py
 # only need to do this on mac or linux
 python -m ipykernel install --user --name=boxoffice_kernel
 # within each ipynb in vscode, type "ctrl+shift+p" and select "Notebook: Select Notebook Kernel" and select "boxoffice_kernel" from the "Jupyter Kernel..." dropdown
+
+# Optional but can type
+code . # open the repo in vscode
 ```
 
 # Running the code

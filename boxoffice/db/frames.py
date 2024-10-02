@@ -1,5 +1,3 @@
-from ctypes import cast
-from math import dist
 from boxoffice.db.db import (
     MovieDistributor,
     MovieFranchise,
@@ -130,6 +128,7 @@ class BoxOfficeDaySchema(pa.DataFrameModel):
     theaters: float = pa.Field(ge=0, nullable=True)
     is_preview: bool = pa.Field(default=False)
     is_new: bool = pa.Field(default=False)
+    day_of_week: int = pa.Field()  # 0 is Monday, 6 is Sunday
 
 
 class CastOrCrewSchema(pa.DataFrameModel):
@@ -174,6 +173,34 @@ class MovieCompleteSchema(pa.DataFrameModel):
     release_day_of_month: int = (
         pa.Field()
     )  # 1 is the first day of the month, 31 is the last day of the month
+    release_day: datetime.date = pa.Field()
+    opening_weekend_revenue: float = pa.Field(ge=0)
+    # largest_weekend_revenue: float = pa.Field(ge=0)
+    # largest_weekend_release_week: int = pa.Field(ge=0)
+    largest_theater_count: float = pa.Field(ge=0)
+    days_over_1000_theaters: float = pa.Field(ge=0)
+    days_over_1000000_revenue: float = pa.Field(ge=0)
+    first_five_days_revenue: float = pa.Field(ge=0)
+    first_seven_days_revenue: float = pa.Field(ge=0)
+    thursday_preview_revenue: float = pa.Field(ge=0)
+    thursday_preview_to_weekend_ratio: float = pa.Field(ge=0)
+    total_revenue_within_365_days: float = pa.Field(ge=0)
+    opening_weekend_to_total_ratio: float = pa.Field(ge=0)
+    preview_sum: float = pa.Field(ge=0)
+    fri_sat_ratio_first_five: float = pa.Field(ge=0)
+    sat_sun_ratio_first_five: float = pa.Field(ge=0)
+    sun_mon_ratio_first_five: float = pa.Field(ge=0)
+    mon_tue_ratio_first_five: float = pa.Field(ge=0)
+    tue_wed_ratio_first_five: float = pa.Field(ge=0)
+    wed_thu_ratio_first_five: float = pa.Field(ge=0)
+    thu_fri_ratio_first_five: float = pa.Field(ge=0)
+    fri_sat_ratio: float = pa.Field(ge=0)
+    sat_sun_ratio: float = pa.Field(ge=0)
+    sun_mon_ratio: float = pa.Field(ge=0)
+    mon_tue_ratio: float = pa.Field(ge=0)
+    tue_wed_ratio: float = pa.Field(ge=0)
+    wed_thu_ratio: float = pa.Field(ge=0)
+    thu_fri_ratio: float = pa.Field(ge=0)
 
 
 def get_movie_frame_no_validation() -> pd.DataFrame | None:
@@ -181,6 +208,27 @@ def get_movie_frame_no_validation() -> pd.DataFrame | None:
 
     try:
         df = pd.DataFrame(movies.dicts())
+
+        return df
+
+    except SchemaError as e:
+        print(e)
+        return None
+
+
+def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
+    box_office_days = BoxOfficeDay.select()
+
+    try:
+        dicts = list(box_office_days.dicts())
+
+        # Calculate the day of the week and add it to each dictionary
+        for entry in dicts:
+            date = entry.get("date")  # Assuming 'date' is the field name
+            if date:
+                entry["day_of_week"] = date.weekday()
+
+        df = DataFrame[BoxOfficeDaySchema](dicts)
 
         return df
 
@@ -207,40 +255,188 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Movie.production_method,
             Movie.source,
             fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
-            MovieDistributor.distributor.name.alias("distributor_name"),
-            MovieDistributor.distributor.slug.alias("distributor_slug"),
-            MovieDistributor.distributor.id.alias("distributor_id"),
         )
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
         .join_from(Movie, MovieDistributor)
     )
 
+    # filter out movies with a sum under 1000000
+    prior_len = len(movies)
+    movies = movies.having(fn.SUM(BoxOfficeDay.revenue) >= 1000000)
+    print(f"Filtered out {prior_len - len(movies)} movies")
+
     franchises = MovieFranchise.select(
         MovieFranchise.movie,
         MovieFranchise.franchise,
-        MovieFranchise.franchise.name.alias("franchise_name"),
-        MovieFranchise.franchise.slug.alias("franchise_slug"),
+        MovieFranchise.franchise.name,
+        MovieFranchise.franchise.slug,
     )
 
     distributors = MovieDistributor.select(
         MovieDistributor.movie,
         MovieDistributor.distributor,
-        MovieDistributor.distributor.name.alias("distributor_name"),
-        MovieDistributor.distributor.slug.alias("distributor_slug"),
+        MovieDistributor.distributor.name,
+        MovieDistributor.distributor.slug,
     )
 
     # need to join the franchises and distributors
-    movies = movies.join_from(Movie, franchises, join_type="LEFT OUTER")
+    movies = movies.join_from(
+        Movie, franchises, join_type="LEFT OUTER", on=(Movie.id == MovieFranchise.movie)
+    )
 
-    movies = movies.join_from(Movie, distributors, join_type="LEFT OUTER")
+    movies = movies.join_from(
+        Movie,
+        distributors,
+        join_type="LEFT OUTER",
+        on=(Movie.id == MovieDistributor.movie),
+    )
+
+    # need to calculate the release day of the week
+    bodf = get_box_office_day_frame()
+
+    if bodf is None:
+        return None
+
+    grouped = bodf.groupby("movie")
+
+    # get the first box office day for each movie
+    first_days = grouped["date"].min()
+
+    # get the first day of the week for each movie
+    first_days = first_days.dt.dayofweek
+
+    # get the first day of the week for each movie that is not a preview
+    non_preview_days = bodf[bodf["is_preview"] == False].groupby("movie")["date"].min()
+
+    non_preview_days = non_preview_days.dt.dayofweek
+
+    # get the first day of the month for each movie
+    first_days_month = grouped["date"].min()
+
+    first_days_month = first_days_month.dt.month
+
+    # get the first day of the month for each movie
+    first_days_day = grouped["date"].min()
+
+    first_days_day = first_days_day.dt.day
+
+    # get the release day of the week for each movie
+    release_day_of_week = grouped["date"].min()
+
+    # get the opening weekend revenue for each movie. This is the sum of the first Friday, Saturday, and Sunday plus Thursday if there was a preview. Movies may not open on a Friday, so need to specifically get the first of each of these
+    all_days = [bodf[bodf["date"].dt.dayofweek == i] for i in range(7)]
+    first_five_of_each_day = [
+        day.groupby("movie").head(5)["revenue"].sum() for day in all_days
+    ]
+    first_each_day = [day.groupby("movie").head(1)["revenue"].sum() for day in all_days]
+
+    # opening weekend revenue is the sum of the first Friday, Saturday, and Sunday plus Thursday if there was a preview
+    opening_weekend_revenue = (
+        first_each_day[4] + first_each_day[5] + first_each_day[6] + first_each_day[3]
+        if bodf["is_preview"]
+        else 0
+    )
+
+    # get the first five days of revenue for each movie
+    first_five_days = grouped.head(5)["revenue"].sum()
+
+    # get the first seven days of revenue for each movie
+    first_seven_days = grouped.head(7)["revenue"].sum()
+
+    # get the total revenue within 365 days of release for each movie
+    total_revenue_within_365_days = (
+        grouped["revenue"]
+        .where(bodf["date"] <= bodf["date"] + datetime.timedelta(days=365))
+        .sum()
+    )
+
+    # get the opening weekend to total ratio for each movie
+    opening_weekend_to_total_ratio = (
+        opening_weekend_revenue / total_revenue_within_365_days
+    )
+
+    # get the largest theater count for each movie
+    largest_theater_count = grouped["theaters"].max()
+
+    # get the days over 1000 theaters for each movie
+    days_over_1000_theaters = (
+        grouped["theaters"].where(bodf["theaters"] >= 1000).count()
+    )
+
+    # get the days over 1000000 revenue for each movie
+    days_over_1000000_revenue = (
+        grouped["revenue"].where(bodf["revenue"] >= 1000000).count()
+    )
+
+    # get the sum of all days that are previews for each movie
+    preview_sum = grouped["revenue"].where(bodf["is_preview"]).sum()
+
+    # now get the ratios for each day of the week
+    first_five_ratios = []
+
+    for i in range(7):
+        first_five_ratios.append(
+            first_five_of_each_day[i].sum() / first_five_of_each_day[i - 1].sum()
+        )
+
+    # now get the ratios for each day of the week
+    ratios = []
+
+    for i in range(7):
+        ratios.append(first_each_day[i].sum() / first_each_day[i - 1].sum())
+
+    # now we are done
 
     try:
         dicts = movies.dicts()
 
         print(dicts)
 
-        return DataFrame[MovieCompleteSchema](dicts)
+        df = pd.DataFrame(dicts)
+
+        df["release_day_of_week"] = release_day_of_week
+        df["release_day_of_week_non_preview"] = non_preview_days
+        df["release_month"] = first_days_month
+        df["release_day_of_month"] = first_days_day
+        df["release_day"] = first_days
+        df["opening_weekend_revenue"] = opening_weekend_revenue
+        df["largest_theater_count"] = largest_theater_count
+        df["days_over_1000_theaters"] = days_over_1000_theaters
+        df["days_over_1000000_revenue"] = days_over_1000000_revenue
+        df["first_five_days_revenue"] = first_five_days
+        df["first_seven_days_revenue"] = first_seven_days
+        df["total_revenue_within_365_days"] = total_revenue_within_365_days
+        df["opening_weekend_to_total_ratio"] = opening_weekend_to_total_ratio
+        df["preview_sum"] = preview_sum
+        df["fri_sat_ratio_first_five"] = first_five_ratios[4]
+        df["sat_sun_ratio_first_five"] = first_five_ratios[5]
+        df["sun_mon_ratio_first_five"] = first_five_ratios[6]
+        df["mon_tue_ratio_first_five"] = first_five_ratios[0]
+        df["tue_wed_ratio_first_five"] = first_five_ratios[1]
+        df["wed_thu_ratio_first_five"] = first_five_ratios[2]
+        df["thu_fri_ratio_first_five"] = first_five_ratios[3]
+        df["fri_sat_ratio"] = ratios[4]
+        df["sat_sun_ratio"] = ratios[5]
+        df["sun_mon_ratio"] = ratios[6]
+        df["mon_tue_ratio"] = ratios[0]
+        df["tue_wed_ratio"] = ratios[1]
+        df["wed_thu_ratio"] = ratios[2]
+        df["thu_fri_ratio"] = ratios[3]
+
+        # rename the distributor and franchise columns
+        df = df.rename(
+            columns={
+                "distributor.name": "distributor_name",
+                "distributor.slug": "distributor_slug",
+                "distributor.id": "distributor_id",
+                "franchise.name": "franchise_name",
+                "franchise.slug": "franchise_slug",
+                "franchise.id": "franchise_id",
+            }
+        )
+
+        return DataFrame[MovieCompleteSchema](df)
 
     except SchemaError as e:
         print(e)
@@ -262,20 +458,6 @@ def get_movie_frame_c() -> pd.DataFrame | None:
     frame["total_box_office"] = frame["id"].map(sums)
 
     return frame
-
-
-def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
-    box_office_days = BoxOfficeDay.select()
-
-    try:
-        dicts = box_office_days.dicts()
-        df = DataFrame[BoxOfficeDaySchema](dicts)
-
-        return df
-
-    except SchemaError as e:
-        print(e)
-        return None
 
 
 def get_cast_crew_frame() -> DataFrame[CastOrCrewSchema] | None:
@@ -315,6 +497,10 @@ if __name__ == "__main__":
 
     if df is not None:
         print(df.head())
+        # deadpool_id = 1
+        deadpool = df[df["id"] == 1]
+
+        print(deadpool)
 
     print("Box Office Days")
 

@@ -1,4 +1,7 @@
+from os import name
 from boxoffice.db.db import (
+    Distributor,
+    Franchise,
     MovieDistributor,
     MovieFranchise,
     sqlite_db_connect,
@@ -143,30 +146,20 @@ class CastOrCrewSchema(pa.DataFrameModel):
     movie_title: str = pa.Field()
 
 
-class MovieCompleteSchema(pa.DataFrameModel):
-    id: int = pa.Field(ge=0)
-    truncated_title: str = pa.Field()
-    slug: str = pa.Field()
-    title: str = pa.Field()
-    release_year: int = pa.Field(ge=0)
-    mpaa_rating: str = pa.Field()
-    running_time: float = pa.Field(
-        nullable=True
-    )  # this can be -1 if the runtime is unknown
-    synopsis: str = pa.Field()
-    mpaa_rating_reason: str = pa.Field(nullable=True)
-    budget: float = pa.Field(ge=0, nullable=True, coerce=True)
-    creative_type: str = pa.Field()
-    genre: str = pa.Field()
-    production_method: str = pa.Field()
-    source: str = pa.Field()
-    total_box_office: float = pa.Field(ge=0)
-    franchise_name: str = pa.Field(nullable=True)
-    franchise_slug: str = pa.Field(nullable=True)
-    franchise_id: int = pa.Field(ge=0, nullable=True)
+class MovieSchemaWithBoxOffice(MovieSchema):
+    total_box_office: int = pa.Field(ge=0)
+
+
+class JoinedMovieSchema(MovieSchemaWithBoxOffice):
     distributor_name: str = pa.Field()
     distributor_slug: str = pa.Field()
     distributor_id: int = pa.Field(ge=0)
+    franchise_name: str = pa.Field(nullable=True)
+    franchise_slug: str = pa.Field(nullable=True)
+    franchise_id: int = pa.Field(ge=0)
+
+
+class MovieCompleteSchema(JoinedMovieSchema):
     release_day_of_week: int = pa.Field()  # 0 is Monday, 6 is Sunday
     release_day_of_week_non_preview: int = pa.Field()  # 0 is Monday, 6 is Sunday
     release_month: int = pa.Field()  # 1 is January, 12 is December
@@ -255,42 +248,32 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Movie.production_method,
             Movie.source,
             fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
+            MovieDistributor.distributor.alias("distributor_id"),
+            MovieFranchise.franchise.alias("franchise_id"),
+            Distributor.name.alias("distributor_name"),
+            Distributor.slug.alias("distributor_slug"),
+            Franchise.name.alias("franchise_name"),
+            Franchise.slug.alias("franchise_slug"),
         )
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
         .join_from(Movie, MovieDistributor)
+        .join_from(Movie, MovieFranchise)
+        .join_from(MovieDistributor, Distributor)
+        .join_from(MovieFranchise, Franchise)
     )
+
+    dicts = movies.dicts()
+
+    # print the beginning of dicts
+    print(dicts)
+
+    movies_df = DataFrame[JoinedMovieSchema](dicts)
 
     # filter out movies with a sum under 1000000
-    prior_len = len(movies)
-    movies = movies.having(fn.SUM(BoxOfficeDay.revenue) >= 1000000)
-    print(f"Filtered out {prior_len - len(movies)} movies")
-
-    franchises = MovieFranchise.select(
-        MovieFranchise.movie,
-        MovieFranchise.franchise,
-        MovieFranchise.franchise.name,
-        MovieFranchise.franchise.slug,
-    )
-
-    distributors = MovieDistributor.select(
-        MovieDistributor.movie,
-        MovieDistributor.distributor,
-        MovieDistributor.distributor.name,
-        MovieDistributor.distributor.slug,
-    )
-
-    # need to join the franchises and distributors
-    movies = movies.join_from(
-        Movie, franchises, join_type="LEFT OUTER", on=(Movie.id == MovieFranchise.movie)
-    )
-
-    movies = movies.join_from(
-        Movie,
-        distributors,
-        join_type="LEFT OUTER",
-        on=(Movie.id == MovieDistributor.movie),
-    )
+    prior_len = len(movies_df)
+    movies_df = movies_df[movies_df["total_box_office"] >= 1000000]
+    print(f"Filtered out {prior_len - len(movies_df)} movies")
 
     # need to calculate the release day of the week
     bodf = get_box_office_day_frame()
@@ -301,7 +284,14 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     grouped = bodf.groupby("movie")
 
     # get the first box office day for each movie
-    first_days = grouped["date"].min()
+    first_days: pd.Series[datetime.date] = grouped["date"].min()
+
+    print(type(first_days))
+
+    print(len(first_days))
+
+    # get the type of the elements in the series
+    print(type(first_days[0]))
 
     # get the first day of the week for each movie
     first_days = first_days.dt.dayofweek

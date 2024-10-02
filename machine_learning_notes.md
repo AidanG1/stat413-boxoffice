@@ -30,3 +30,14 @@ Here are some of the broader seasonality and holidays:
 - Holidays with no school
 - Summer or winter releases
 - Depending on the audience of the movie, could have higher Tuesdays or weekdays in general
+
+## How to get the information
+I would say there are two clear options for how to get the predicted multiples:
+1. Use a classification model to find the most similar movies to the one we are predicting, and use a weighted average of their multiples
+2. Use a regression model to predict the multiples directly
+
+## How use the data
+Before a movie comes out, we generate a prior time series. Then, after the movie comes out, we update this prior time series with the actual data and then re-predict the multiples.
+
+## Type of the time series
+This does not seem like an ARIMA. The reason this does not seem like an ARIMA is due to exponential drift. It seems like it would be better to predict the daily multiples and just generate the time series from that and then the final gross from the sum of the predicted daily grosses.

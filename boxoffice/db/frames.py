@@ -16,7 +16,7 @@ from pandera.typing import DataFrame
 import datetime
 import pandas as pd
 import pandera as pa
-from peewee import fn
+from peewee import fn, JOIN
 
 
 class CREATIVE_TYPE(str, Enum):
@@ -156,7 +156,9 @@ class JoinedMovieSchema(MovieSchemaWithBoxOffice):
     distributor_id: int = pa.Field(ge=0)
     franchise_name: str = pa.Field(nullable=True)
     franchise_slug: str = pa.Field(nullable=True)
-    franchise_id: int = pa.Field(ge=0)
+    franchise_id: float = pa.Field(
+        ge=0, nullable=True
+    )  # why is this a float? I don't want it to be but things break otherwise
 
 
 class MovieCompleteSchema(JoinedMovieSchema):
@@ -258,9 +260,9 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
         .join_from(Movie, MovieDistributor)
-        .join_from(Movie, MovieFranchise)
+        .join_from(Movie, MovieFranchise, JOIN.LEFT_OUTER)
         .join_from(MovieDistributor, Distributor)
-        .join_from(MovieFranchise, Franchise)
+        .join_from(MovieFranchise, Franchise, JOIN.LEFT_OUTER)
     )
 
     dicts = movies.dicts()
@@ -272,8 +274,11 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # filter out movies with a sum under 1000000
     prior_len = len(movies_df)
+    # print median of total box office
     movies_df = movies_df[movies_df["total_box_office"] >= 1000000]
-    print(f"Filtered out {prior_len - len(movies_df)} movies")
+    print(
+        f"Filtered out {prior_len - len(movies_df)} movies, there are now {len(movies_df)} movies"
+    )
 
     # need to calculate the release day of the week
     bodf = get_box_office_day_frame()
@@ -281,20 +286,27 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     if bodf is None:
         return None
 
+    # now filter out the box office days for movies that are not in the movie dataframe
+    prior_len = len(bodf)
+    bodf = bodf[bodf["movie"].isin(movies_df["id"])]
+    print(
+        f"Filtered out {prior_len - len(bodf)} box office days, there are now {len(bodf)} box office days"
+    )
+
     grouped = bodf.groupby("movie")
 
     # get the first box office day for each movie
-    first_days: pd.Series[datetime.date] = grouped["date"].min()
+    min_days: pd.Series[datetime.date] = grouped["date"].min()
 
-    print(type(first_days))
+    print(type(min_days))
 
-    print(len(first_days))
+    print(len(min_days))
 
     # get the type of the elements in the series
-    print(type(first_days[0]))
+    print(type(min_days[1]))
 
     # get the first day of the week for each movie
-    first_days = first_days.dt.dayofweek
+    first_days = min_days.dt.dayofweek
 
     # get the first day of the week for each movie that is not a preview
     non_preview_days = bodf[bodf["is_preview"] == False].groupby("movie")["date"].min()

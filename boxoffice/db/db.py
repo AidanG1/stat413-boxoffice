@@ -99,23 +99,31 @@ class CastOrCrew(BaseModel):
 
 
 class MovieFranchise(BaseModel):
-    movie = ForeignKeyField(Movie, backref="franchises")
-    franchise = ForeignKeyField(Franchise, backref="movies")
+    """
+    Each movie is in maximum one franchise
+    """
+
+    movie = ForeignKeyField(Movie, backref="movie_franchises")
+    franchise = ForeignKeyField(Franchise, backref="movie_franchises")
 
 
 class MovieKeyword(BaseModel):
-    movie = ForeignKeyField(Movie, backref="keywords")
-    keyword = ForeignKeyField(Keyword, backref="movies")
+    movie = ForeignKeyField(Movie, backref="movie_keywords")
+    keyword = ForeignKeyField(Keyword, backref="movie_keywords")
 
 
 class MovieProductionCompany(BaseModel):
-    movie = ForeignKeyField(Movie, backref="production_companies")
-    production_company = ForeignKeyField(ProductionCompany, backref="movies")
+    movie = ForeignKeyField(Movie, backref="movie_production_companies")
+    production_company = ForeignKeyField(
+        ProductionCompany, backref="movie_production_companies"
+    )
 
 
 class MovieProductionCountry(BaseModel):
-    movie = ForeignKeyField(Movie, backref="production_countries")
-    production_country = ForeignKeyField(ProductionCountry, backref="movies")
+    movie = ForeignKeyField(Movie, backref="movie_production_countries")
+    production_country = ForeignKeyField(
+        ProductionCountry, backref="movie_production_countries"
+    )
 
 
 class DomesticRelease(BaseModel):

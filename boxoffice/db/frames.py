@@ -1,10 +1,21 @@
-from boxoffice.db.db import sqlite_db_connect, Movie, BoxOfficeDay
+from ctypes import cast
+from math import dist
+from boxoffice.db.db import (
+    MovieDistributor,
+    MovieFranchise,
+    sqlite_db_connect,
+    Movie,
+    BoxOfficeDay,
+    CastOrCrew,
+    Person,
+)
 from enum import Enum
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
 import datetime
 import pandas as pd
 import pandera as pa
+from peewee import fn
 
 
 class CREATIVE_TYPE(str, Enum):
@@ -93,17 +104,22 @@ class MovieSchema(pa.DataFrameModel):
     slug: str = pa.Field()
     title: str = pa.Field()
     release_year: int = pa.Field(ge=0)
-    mpaa_rating: str = pa.Field(isin=MPAA_RATING)
+    mpaa_rating: str = pa.Field()
+    # mpaa_rating: str = pa.Field(isin=MPAA_RATING)
     running_time: float = pa.Field(
         nullable=True
     )  # this can be -1 if the runtime is unknown
     synopsis: str = pa.Field()
     mpaa_rating_reason: str = pa.Field(nullable=True)
     budget: float = pa.Field(ge=0, nullable=True, coerce=True)
-    creative_type: str = pa.Field(isin=CREATIVE_TYPE)
-    genre: str = pa.Field(isin=GENRE)
-    production_method: str = pa.Field(isin=PRODUCTION_METHOD)
-    source: str = pa.Field(isin=SOURCE)
+    creative_type: str = pa.Field()
+    # creative_type: str = pa.Field(isin=CREATIVE_TYPE)
+    genre: str = pa.Field()
+    # genre: str = pa.Field(isin=GENRE)
+    production_method: str = pa.Field()
+    # production_method: str = pa.Field(isin=PRODUCTION_METHOD)
+    source: str = pa.Field()
+    # source: str = pa.Field(isin=SOURCE)
 
 
 class BoxOfficeDaySchema(pa.DataFrameModel):
@@ -114,7 +130,45 @@ class BoxOfficeDaySchema(pa.DataFrameModel):
     theaters: float = pa.Field(ge=0, nullable=True)
 
 
-def get_movie_frame() -> pd.DataFrame | None:
+class CastOrCrewSchema(pa.DataFrameModel):
+    id: int = pa.Field(ge=0)
+    person: int = pa.Field(ge=0)
+    person_name: str = pa.Field()
+    person_slug: str = pa.Field()
+    role: str = pa.Field()
+    is_cast: bool = pa.Field()
+    is_lead_ensemble: bool = pa.Field()
+    movie: int = pa.Field(ge=0)
+    movie_title: str = pa.Field()
+
+
+class MovieCompleteSchema(pa.DataFrameModel):
+    id: int = pa.Field(ge=0)
+    truncated_title: str = pa.Field()
+    slug: str = pa.Field()
+    title: str = pa.Field()
+    release_year: int = pa.Field(ge=0)
+    mpaa_rating: str = pa.Field()
+    running_time: float = pa.Field(
+        nullable=True
+    )  # this can be -1 if the runtime is unknown
+    synopsis: str = pa.Field()
+    mpaa_rating_reason: str = pa.Field(nullable=True)
+    budget: float = pa.Field(ge=0, nullable=True, coerce=True)
+    creative_type: str = pa.Field()
+    genre: str = pa.Field()
+    production_method: str = pa.Field()
+    source: str = pa.Field()
+    total_box_office: float = pa.Field(ge=0)
+    franchise_name: str = pa.Field(nullable=True)
+    franchise_slug: str = pa.Field(nullable=True)
+    franchise_id: int = pa.Field(ge=0, nullable=True)
+    distributor_name: str = pa.Field()
+    distributor_slug: str = pa.Field()
+    distributor_id: int = pa.Field(ge=0)
+
+
+def get_movie_frame_no_validation() -> pd.DataFrame | None:
     movies = Movie.select()
 
     try:
@@ -127,14 +181,58 @@ def get_movie_frame() -> pd.DataFrame | None:
         return None
 
 
-def get_movie_frame_validated() -> DataFrame[MovieSchema] | None:
-    df = get_movie_frame()
+def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
+    movies = (
+        Movie.select(
+            Movie.id,
+            Movie.truncated_title,
+            Movie.slug,
+            Movie.title,
+            Movie.release_year,
+            Movie.mpaa_rating,
+            Movie.running_time,
+            Movie.synopsis,
+            Movie.mpaa_rating_reason,
+            Movie.budget,
+            Movie.creative_type,
+            Movie.genre,
+            Movie.production_method,
+            Movie.source,
+            fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
+            MovieDistributor.distributor.name.alias("distributor_name"),
+            MovieDistributor.distributor.slug.alias("distributor_slug"),
+            MovieDistributor.distributor.id.alias("distributor_id"),
+        )
+        .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
+        .group_by(Movie.id)
+        .join_from(Movie, MovieDistributor)
+    )
 
-    if df is None:
-        return None
+    franchises = MovieFranchise.select(
+        MovieFranchise.movie,
+        MovieFranchise.franchise,
+        MovieFranchise.franchise.name.alias("franchise_name"),
+        MovieFranchise.franchise.slug.alias("franchise_slug"),
+    )
+
+    distributors = MovieDistributor.select(
+        MovieDistributor.movie,
+        MovieDistributor.distributor,
+        MovieDistributor.distributor.name.alias("distributor_name"),
+        MovieDistributor.distributor.slug.alias("distributor_slug"),
+    )
+
+    # need to join the franchises and distributors
+    movies = movies.join_from(Movie, franchises, join_type="LEFT OUTER")
+
+    movies = movies.join_from(Movie, distributors, join_type="LEFT OUTER")
 
     try:
-        return DataFrame[MovieSchema](df)
+        dicts = movies.dicts()
+
+        print(dicts)
+
+        return DataFrame[MovieCompleteSchema](dicts)
 
     except SchemaError as e:
         print(e)
@@ -162,7 +260,36 @@ def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
     box_office_days = BoxOfficeDay.select()
 
     try:
-        df = DataFrame[BoxOfficeDaySchema](box_office_days.dicts())
+        dicts = box_office_days.dicts()
+        df = DataFrame[BoxOfficeDaySchema](dicts)
+
+        return df
+
+    except SchemaError as e:
+        print(e)
+        return None
+
+
+def get_cast_crew_frame() -> DataFrame[CastOrCrewSchema] | None:
+    cast_crew = (
+        CastOrCrew.select(
+            CastOrCrew.id,
+            CastOrCrew.person,
+            CastOrCrew.role,
+            CastOrCrew.is_cast,
+            CastOrCrew.is_lead_ensemble,
+            CastOrCrew.movie,
+            Person.name.alias("person_name"),
+            Person.slug.alias("person_slug"),
+            Movie.title.alias("movie_title"),
+        )
+        .join_from(CastOrCrew, Person)
+        .join_from(CastOrCrew, Movie)
+    )
+
+    try:
+        dicts = cast_crew.dicts()
+        df = DataFrame[CastOrCrewSchema](dicts)
 
         return df
 
@@ -174,12 +301,23 @@ def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
 if __name__ == "__main__":
     sqlite_db_connect()
 
+    print("Movies")
+
     df = get_movie_frame()
 
     if df is not None:
         print(df.head())
 
+    print("Box Office Days")
+
     bodf = get_box_office_day_frame()
 
     if bodf is not None:
         print(bodf.head())
+
+    print("Cast and Crew")
+
+    ccf = get_cast_crew_frame()
+
+    if ccf is not None:
+        print(ccf.head())

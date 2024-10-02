@@ -128,6 +128,8 @@ class BoxOfficeDaySchema(pa.DataFrameModel):
     date: datetime.date = pa.Field()
     revenue: int = pa.Field(ge=0)
     theaters: float = pa.Field(ge=0, nullable=True)
+    is_preview: bool = pa.Field(default=False)
+    is_new: bool = pa.Field(default=False)
 
 
 class CastOrCrewSchema(pa.DataFrameModel):
@@ -166,6 +168,12 @@ class MovieCompleteSchema(pa.DataFrameModel):
     distributor_name: str = pa.Field()
     distributor_slug: str = pa.Field()
     distributor_id: int = pa.Field(ge=0)
+    release_day_of_week: int = pa.Field()  # 0 is Monday, 6 is Sunday
+    release_day_of_week_non_preview: int = pa.Field()  # 0 is Monday, 6 is Sunday
+    release_month: int = pa.Field()  # 1 is January, 12 is December
+    release_day_of_month: int = (
+        pa.Field()
+    )  # 1 is the first day of the month, 31 is the last day of the month
 
 
 def get_movie_frame_no_validation() -> pd.DataFrame | None:

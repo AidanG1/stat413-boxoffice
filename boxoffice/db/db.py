@@ -137,6 +137,8 @@ class BoxOfficeDay(BaseModel):
     revenue = IntegerField()
     theaters = IntegerField(null=True)
     movie = ForeignKeyField(Movie, backref="box_office_days")
+    is_preview = BooleanField(default=False)
+    is_new = BooleanField(default=False)
 
     class Meta:
         constraints = [SQL("UNIQUE (date, movie_id)")]

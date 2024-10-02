@@ -8,7 +8,9 @@ class NameSlug(NamedTuple):
     slug: str
 
 
-def get_movie_title_and_slug(third_column: bs4.element.Tag) -> NameSlug | None:
+def get_movie_title_and_slug(
+    third_column: bs4.element.Tag, verbose: bool = True
+) -> NameSlug | None:
     third_column_bold = third_column.find("b")
     if third_column_bold is not None:
         movie_truncated_title: str = third_column_bold.text
@@ -25,7 +27,8 @@ def get_movie_title_and_slug(third_column: bs4.element.Tag) -> NameSlug | None:
 
         if match is not None:
             slug: str = match.group(1)
-            print(slug)
+            if verbose:
+                print(slug)
 
             return NameSlug(name=movie_truncated_title, slug=slug)
 
@@ -60,3 +63,11 @@ def get_theaters(column: bs4.element.Tag) -> int | None:
         return int(column.text.replace(",", ""))
     except ValueError:
         return None
+
+
+def get_preview(column: bs4.element.Tag) -> int | None:
+    return column.text == "P"
+
+
+def get_new(column: bs4.element.Tag) -> int | None:
+    return column.text == "N"

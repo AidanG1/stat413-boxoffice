@@ -356,6 +356,10 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     movies_df = DataFrame[JoinedMovieSchema](dicts)
 
+    # within synopsis, replace commas and newlines
+    movies_df["synopsis"] = movies_df["synopsis"].str.replace(",", "%2C")
+    movies_df["synopsis"] = movies_df["synopsis"].str.replace("\n", "%0A")
+
     kept_ids = movies_df["id"]
 
     print(
@@ -441,6 +445,9 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .groupby("movie")["revenue"]
         .sum()
     )
+
+    # get the length of total revenue within 365 days
+    print(len(total_revenue_within_365_days))
 
     # get the opening weekend to total ratio for each movie
     opening_weekend_to_total_ratio = (

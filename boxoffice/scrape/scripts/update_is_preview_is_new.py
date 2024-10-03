@@ -1,6 +1,5 @@
 # loop through all values and update the is_preview and is_new based on scraping
 
-from tabnanny import verbose
 from boxoffice.db.db import BoxOfficeDay, sqlite_db_connect, Movie
 from bs4 import BeautifulSoup, Tag
 from boxoffice.scrape.scrape_helpers_daily import (

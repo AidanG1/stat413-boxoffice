@@ -1,3 +1,4 @@
+from operator import le
 from os import name
 
 from numpy import where
@@ -150,6 +151,8 @@ class CastOrCrewSchema(pa.DataFrameModel):
 
 class MovieSchemaWithBoxOffice(MovieSchema):
     total_box_office: int = pa.Field(ge=0)
+    release_day: datetime.date = pa.Field()
+    release_day_non_preview: datetime.date = pa.Field()
 
 
 class JoinedMovieSchema(MovieSchemaWithBoxOffice):
@@ -170,13 +173,13 @@ class MovieCompleteSchema(JoinedMovieSchema):
     release_day_of_month: int = (
         pa.Field()
     )  # 1 is the first day of the month, 31 is the last day of the month
-    release_day: datetime.date = pa.Field()
     opening_weekend_revenue: float = pa.Field(ge=0)
     # largest_weekend_revenue: float = pa.Field(ge=0)
     # largest_weekend_release_week: int = pa.Field(ge=0)
     largest_theater_count: float = pa.Field(ge=0)
     days_over_1000_theaters: float = pa.Field(ge=0)
     days_over_1000000_revenue: float = pa.Field(ge=0)
+    days_over_100000_revenue: float = pa.Field(ge=0)
     first_five_days_revenue: float = pa.Field(ge=0)
     first_seven_days_revenue: float = pa.Field(ge=0)
     thursday_preview_to_weekend_ratio: float = pa.Field(ge=0)
@@ -234,6 +237,16 @@ def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
 
 
 def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
+    # use a subquery to get release dates for non_preview days
+    subquery = (
+        BoxOfficeDay.select(
+            BoxOfficeDay.movie_id,
+            fn.MIN(BoxOfficeDay.date).alias("release_day_non_preview"),
+        )
+        .where(BoxOfficeDay.is_preview == False)
+        .group_by(BoxOfficeDay.movie)
+    )
+
     movies = (
         Movie.select(
             Movie.id,
@@ -251,12 +264,14 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Movie.production_method,
             Movie.source,
             fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
+            fn.MIN(BoxOfficeDay.date).alias("release_day"),
             MovieDistributor.distributor.alias("distributor_id"),
             MovieFranchise.franchise.alias("franchise_id"),
             Distributor.name.alias("distributor_name"),
             Distributor.slug.alias("distributor_slug"),
             Franchise.name.alias("franchise_name"),
             Franchise.slug.alias("franchise_slug"),
+            subquery.c.release_day_non_preview,
         )
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
@@ -264,6 +279,7 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .join_from(Movie, MovieFranchise, JOIN.LEFT_OUTER)
         .join_from(MovieDistributor, Distributor)
         .join_from(MovieFranchise, Franchise, JOIN.LEFT_OUTER)
+        .join(subquery, on=(Movie.id == subquery.c.movie_id))
     )
 
     dicts = movies.dicts()
@@ -271,13 +287,25 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     # print the beginning of dicts
     print(dicts)
 
+    # make sure the release_day_non_preview is a date
+    for entry in dicts:
+        entry["release_day_non_preview"] = datetime.datetime.strptime(
+            entry["release_day_non_preview"], "%Y-%m-%d"
+        ).date()
+
     movies_df = DataFrame[JoinedMovieSchema](dicts)
 
     # filter out movies with a sum under 1000000
     prior_len = len(movies_df)
     # print median of total box office
     movies_df = movies_df[movies_df["total_box_office"] >= 1000000]
+
+    # movies_df = movies_df.sort_values("id")
     movies_df.reset_index(drop=True, inplace=True)
+    # movies_df = movies_df.sort_values("id")
+
+    kept_ids = movies_df["id"]
+
     print(
         f"Filtered out {prior_len - len(movies_df)} movies, there are now {len(movies_df)} movies"
     )
@@ -290,45 +318,39 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # now filter out the box office days for movies that are not in the movie dataframe
     prior_len = len(bodf)
-    bodf = bodf[bodf["movie"].isin(movies_df["id"])]
+    bodf = bodf[bodf["movie"].isin(kept_ids)]
+
+    # bodf = bodf.sort_values("date").sort_values("movie")
     bodf.reset_index(drop=True, inplace=True)
+    # bodf = bodf.sort_values("date").sort_values("movie")
+
     print(
         f"Filtered out {prior_len - len(bodf)} box office days, there are now {len(bodf)} box office days"
     )
-
-    grouped = bodf.groupby("movie")
-
-    # get the first box office day for each movie
-    min_days: pd.Series[datetime.date] = grouped["date"].min()
-
-    # print how many days are NaN
-    print(min_days.isna().sum())
-
-    # get the first day of the week for each movie
-    first_days: pd.Series[int] = min_days.apply(lambda x: x.weekday())
-
-    print(first_days.isna().sum())
-
-    # get the first day of the week for each movie that is not a preview
-    non_preview_days_df: pd.Series[datetime.date] = (
-        bodf[bodf["is_preview"] == False].groupby("movie")["date"].min()
-    )
-
-    non_preview_days: pd.Series[int] = non_preview_days_df.apply(lambda x: x.weekday())
-
-    first_days_month: pd.Series[int] = non_preview_days_df.apply(lambda x: x.month)
-
-    first_days_day = non_preview_days_df.apply(lambda x: x.day)
 
     # add the columns to the df
     # copy the movies_df but without any typing
     df = movies_df.copy()
 
-    df["release_day"] = min_days
-    df["release_day_of_week"] = first_days
-    df["release_day_of_week_non_preview"] = non_preview_days
-    df["release_month"] = first_days_month
-    df["release_day_of_month"] = first_days_day
+    # df.reset_index(drop=True, inplace=True)
+
+    # print the total amount of dates
+    print(len(bodf["date"]))
+
+    dates = bodf.groupby("movie")["date"]
+
+    # print the na count of the dates
+    print(len(dates))
+
+    df["release_day_of_week"] = df["release_day"].apply(lambda x: x.weekday())
+
+    df["release_day_of_week_non_preview"] = df["release_day_non_preview"].apply(
+        lambda x: x.weekday()
+    )
+
+    df["release_month"] = df["release_day_non_preview"].apply(lambda x: x.month)
+
+    df["release_day_of_month"] = df["release_day_non_preview"].apply(lambda x: x.day)
 
     # get the opening weekend revenue for each movie. This is the sum of the first Friday, Saturday, and Sunday plus Thursday if there was a preview. Movies may not open on a Friday, so need to specifically get the first of each of these
     first_five_of_each_day = []
@@ -356,10 +378,10 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     )
 
     # get the first five days of revenue for each movie
-    first_five_days = grouped.head(5)["revenue"].sum()
+    first_five_days = bodf.groupby("movie")["revenue"].head(5).sum()
 
     # get the first seven days of revenue for each movie
-    first_seven_days = grouped.head(7)["revenue"].sum()
+    first_seven_days = bodf.groupby("movie")["revenue"].head(7).sum()
 
     # get the total revenue within 365 days of release for each movie
     total_revenue_within_365_days = (
@@ -374,7 +396,7 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     )
 
     # get the largest theater count for each movie
-    largest_theater_count = grouped["theaters"].max()
+    largest_theater_count = bodf.groupby("movie")["theaters"].max()
 
     # get the days over 1000 theaters for each movie
     days_over_1000_theaters = (
@@ -384,6 +406,10 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     # get the days over 1000000 revenue for each movie
     days_over_1000000_revenue = (
         bodf.where(bodf["revenue"] >= 1000000).groupby("movie")["revenue"].count()
+    )
+
+    days_over_100000_revenue = (
+        bodf.where(bodf["revenue"] >= 100000).groupby("movie")["revenue"].count()
     )
 
     # get the sum of all days that are previews for each movie
@@ -410,6 +436,7 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         df["largest_theater_count"] = largest_theater_count
         df["days_over_1000_theaters"] = days_over_1000_theaters
         df["days_over_1000000_revenue"] = days_over_1000000_revenue
+        df["days_over_100000_revenue"] = days_over_100000_revenue
         df["first_five_days_revenue"] = first_five_days
         df["first_seven_days_revenue"] = first_seven_days
         df["total_revenue_within_365_days"] = total_revenue_within_365_days

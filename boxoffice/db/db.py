@@ -1,3 +1,4 @@
+from enum import auto
 from peewee import *
 from boxoffice.db.db_path import base_db_path
 
@@ -68,6 +69,7 @@ class Language(BaseModel):
 
 
 class Movie(BaseModel):
+    id = IntegerField(primary_key=True)
     truncated_title = CharField()
     slug = CharField(index=True)
     title = CharField()
@@ -91,6 +93,7 @@ class Movie(BaseModel):
 
 
 class CastOrCrew(BaseModel):
+    id = IntegerField(primary_key=True)
     person = ForeignKeyField(Person, backref="people")
     role = CharField()
     is_cast = BooleanField()
@@ -137,6 +140,8 @@ class BoxOfficeDay(BaseModel):
     revenue = IntegerField()
     theaters = IntegerField(null=True)
     movie = ForeignKeyField(Movie, backref="box_office_days")
+    is_preview = BooleanField(default=False)
+    is_new = BooleanField(default=False)
 
     class Meta:
         constraints = [SQL("UNIQUE (date, movie_id)")]

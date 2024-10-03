@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 import datetime
 import requests
 import os
@@ -81,12 +81,21 @@ if __name__ == "__main__":
             print(f"No tbody in table with id {table_id}")
             continue
 
+        if type(tbody) != Tag:
+            print(f"tbody is not a Tag")
+            continue
+
         rows = tbody.find_all("tr")
 
         print("Found", len(rows), "rows")
 
         for row in rows:
             columns = row.find_all("td")
+
+            # the second column contains information about whether the movie is a preview
+            is_preview = get_preview(columns[1])
+
+            is_new = get_new(columns[1])
 
             # the third column is the movie title
             movie_name_slug = get_movie_title_and_slug(columns[2])
@@ -388,7 +397,12 @@ if __name__ == "__main__":
 
             else:
                 BoxOfficeDay.create(
-                    date=date, movie=movie, revenue=gross, theaters=theaters
+                    date=date,
+                    movie=movie,
+                    revenue=gross,
+                    theaters=theaters,
+                    is_preview=is_preview,
+                    is_new=is_new,
                 )
 
         print("Time taken:", time.time() - start_time)

@@ -35,25 +35,21 @@ def get_synopsis(main: bs4.element.Tag) -> str | None:
         return None
 
     # get the first p tag child in the div
-    first_p = synopsis_div.find("p")
+    # first_p = synopsis_div.find("p")
 
-    synopsis = first_p.text.strip()
+    synopsis = synopsis_div.text.strip()
 
     # they all start with Synopsis so remove that
     if synopsis.startswith("Synopsis"):
         synopsis = synopsis[8:]
+        remove_metrics = "Metrics\n\n\n"
 
-    remove_metrics = """
-    Metrics
+        remove_metrics_index = synopsis.find(remove_metrics)
 
-
-
-"""
-
-    remove_metrics_index = synopsis.find(remove_metrics)
-
-    if remove_metrics_index != -1:
-        synopsis = synopsis[:remove_metrics_index]
+        if remove_metrics_index != -1:
+            synopsis = synopsis[:remove_metrics_index]
+    else:
+        synopsis = ""
 
     return synopsis
 

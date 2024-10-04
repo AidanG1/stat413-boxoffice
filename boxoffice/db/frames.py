@@ -1,106 +1,23 @@
-from heapq import nsmallest
-from itertools import groupby
-import os
 from boxoffice.db.db import (
-    Distributor,
-    Franchise,
-    MovieDistributor,
-    MovieFranchise,
-    sqlite_db_connect,
-    Movie,
     BoxOfficeDay,
     CastOrCrew,
+    Distributor,
+    Franchise,
+    Movie,
+    MovieDistributor,
+    MovieFranchise,
     Person,
+    sqlite_db_connect,
 )
-from enum import Enum
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
+from peewee import fn, JOIN
 import datetime
+import os
 import pandas as pd
 import pandera as pa
-from peewee import fn, JOIN
 
 MOVIES_CSV_PATH = "boxoffice/db/data/movies.csv"
-
-
-class CREATIVE_TYPE(str, Enum):
-    DRAMATIZATION = "Dramatization"
-    MULTIPLE_CREATIVE_TYPES = "Multiple Creative Types"
-    SCIENCE_FICTION = "Science Fiction"
-    FANTASY = "Fantasy"
-    HISTORICAL_FICTION = "Historical Fiction"
-    CONTEMPORARY_FICTION = "Contemporary Fiction"
-    SUPER_HERO = "Super Hero"
-    FACTUAL = "Factual"
-    KIDS_FICTION = "Kids Fiction"
-
-
-class GENRE(str, Enum):
-    WESTERN = "Western"
-    MULTIPLE_GENRES = "Multiple Genres"
-    HORROR = "Horror"
-    EDUCATIONAL = "Educational"
-    MUSICAL = "Musical"
-    DOCUMENTARY = "Documentary"
-    BLACK_COMEDY = "Black Comedy"
-    ADVENTURE = "Adventure"
-    REALITY = "Reality"
-    ACTION = "Action"
-    THRILLER_SUSPENSE = "Thriller/Suspense"
-    ROMANTIC_COMEDY = "Romantic Comedy"
-    CONCERT_PERFORMANCE = "Concert/Performance"
-    DRAMA = "Drama"
-    COMEDY = "Comedy"
-
-
-class MPAA_RATING(str, Enum):
-    NR = "NR"
-    PG = "PG"
-    OPEN = "Open"
-    G = "G"
-    M_PG = "M/PG"
-    NOT_RATED = "Not Rated"
-    GP = "GP"
-    NC_17 = "NC-17"
-    PG_13 = "PG-13"
-    R = "R"
-    NOT_YET_RATED = "Not Yet Rated"
-
-
-class PRODUCTION_METHOD(str, Enum):
-    DIGITAL_ANIMATION = "Digital Animation"
-    MULTIPLE_PRODUCTION_METHODS = "Multiple Production Methods"
-    ANIMATION_LIVE_ACTION = "Animation/Live Action"
-    LIVE_ACTION = "Live Action"
-    ROTOSCOPING = "Rotoscoping"
-    HAND_ANIMATION = "Hand Animation"
-    STOP_MOTION_ANIMATION = "Stop-Motion Animation"
-
-
-class SOURCE(str, Enum):
-    BASED_ON_TV = "Based on TV"
-    REMAKE = "Remake"
-    BASED_ON_COMIC_GRAPHIC_NOVEL = "Based on Comic/Graphic Novel"
-    BASED_ON_SHORT_FILM = "Based on Short Film"
-    BASED_ON_SONG = "Based on Song"
-    COMPILATION = "Compilation"
-    ORIGINAL_SCREENPLAY = "Original Screenplay"
-    BASED_ON_PLAY = "Based on Play"
-    BASED_ON_RADIO = "Based on Radio"
-    BASED_ON_TOY = "Based on Toy"
-    BASED_ON_RELIGIOUS_TEXT = "Based on Religious Text"
-    BASED_ON_MUSICAL_OR_OPERA = "Based on Musical or Opera"
-    BASED_ON_THEME_PARK_RIDE = "Based on Theme Park Ride"
-    BASED_ON_GAME = "Based on Game"
-    BASED_ON_FOLK_TALE_LEGEND_FAIRYTALE = "Based on Folk Tale/Legend/Fairytale"
-    BASED_ON_FICTION_BOOK_SHORT_STORY = "Based on Fiction Book/Short Story"
-    BASED_ON_FACTUAL_BOOK_ARTICLE = "Based on Factual Book/Article"
-    BASED_ON_WEB_SERIES = "Based on Web Series"
-    BASED_ON_BALLET = "Based on Ballet"
-    SPIN_OFF = "Spin-Off"
-    BASED_ON_REAL_LIFE_EVENTS = "Based on Real Life Events"
-    BASED_ON_MOVIE = "Based on Movie"
-    BASED_ON_MUSICAL_GROUP = "Based on Musical Group"
 
 
 class MovieSchema(pa.DataFrameModel):
@@ -211,7 +128,7 @@ class MovieCompleteSchema(JoinedMovieSchema):
     thu_fri_ratio: float = pa.Field(ge=0)
 
 
-def get_movie_frame_no_validation() -> pd.DataFrame | None:
+def get_movie_frame() -> pd.DataFrame | None:
     movies = Movie.select()
 
     try:
@@ -245,7 +162,7 @@ def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
         return None
 
 
-def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
+def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
     # first check if it is movies.csv
     if os.path.exists(MOVIES_CSV_PATH):
         print("Reading from movies.csv")
@@ -262,11 +179,27 @@ def get_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         return calculate_movie_frame()
 
 
+def get_box_office_day_frame_full() -> DataFrame[BoxOfficeDaySchema] | None:
+    mf = get_movie_frame_full()
+
+    if mf is None:
+        return None
+
+    kept_ids = mf["id"]
+
+    bodf = get_box_office_day_frame()
+
+    if bodf is None:
+        return None
+
+    return DataFrame[BoxOfficeDaySchema](bodf[bodf["movie"].isin(kept_ids)])
+
+
 def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     # use a subquery to get release dates for non_preview days
     subquery = (
         BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,
+            BoxOfficeDay.movie_id,  # type: ignore
             fn.MIN(BoxOfficeDay.date).alias("release_day_non_preview"),
             fn.MAX(BoxOfficeDay.theaters).alias("largest_theater_count"),
         )
@@ -276,34 +209,34 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     days_over_1000_theaters_query = (
         BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,
+            BoxOfficeDay.movie_id,  # type: ignore
             fn.COUNT(BoxOfficeDay.theaters).alias("days_over_1000_theaters"),
         )
-        .where(BoxOfficeDay.theaters >= 1000)
+        .where(BoxOfficeDay.theaters >= 1000)  # type: ignore
         .group_by(BoxOfficeDay.movie)
     )
 
     days_over_1000000_revenue_query = (
         BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,
+            BoxOfficeDay.movie_id,  # type: ignore
             fn.COUNT(BoxOfficeDay.revenue).alias("days_over_1000000_revenue"),
         )
-        .where(BoxOfficeDay.revenue >= 1000000)
+        .where(BoxOfficeDay.revenue >= 1000000)  # type: ignore
         .group_by(BoxOfficeDay.movie)
     )
 
     days_over_100000_revenue_query = (
         BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,
+            BoxOfficeDay.movie_id,  # type: ignore
             fn.COUNT(BoxOfficeDay.revenue).alias("days_over_100000_revenue"),
         )
-        .where(BoxOfficeDay.revenue >= 100000)
+        .where(BoxOfficeDay.revenue >= 100000)  # type: ignore
         .group_by(BoxOfficeDay.movie)
     )
 
     preview_sum_query = (
         BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,
+            BoxOfficeDay.movie_id,  # type: ignore
             fn.SUM(BoxOfficeDay.revenue).alias("preview_sum"),
         )
         .where(BoxOfficeDay.is_preview == True)
@@ -565,23 +498,6 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df.to_csv(MOVIES_CSV_PATH, index=False)
 
     return DataFrame[MovieCompleteSchema](df)
-
-
-def get_movie_frame_c() -> pd.DataFrame | None:
-    # eventually this will clean the data too
-    frame = get_movie_frame()
-
-    box_office_day_frame = get_box_office_day_frame()
-
-    if frame is None or box_office_day_frame is None:
-        return None
-
-    # do the join with the box office table to get the sum of the revenue
-    sums = box_office_day_frame.groupby("movie")["revenue"].sum()
-
-    frame["total_box_office"] = frame["id"].map(sums)
-
-    return frame
 
 
 def get_cast_crew_frame() -> DataFrame[CastOrCrewSchema] | None:

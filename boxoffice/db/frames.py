@@ -19,6 +19,11 @@ import pandera as pa
 
 MOVIES_CSV_PATH = "boxoffice/db/data/movies.csv"
 
+# make sure that the movies_csv_path starts from stat413-boxoffice as the parent
+while not os.path.exists(MOVIES_CSV_PATH):
+    print(f"movies.csv not found at {MOVIES_CSV_PATH}")
+    MOVIES_CSV_PATH = f"../{MOVIES_CSV_PATH}"
+
 
 class MovieSchema(pa.DataFrameModel):
     id: int = pa.Field(ge=0)
@@ -167,6 +172,10 @@ def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
     if os.path.exists(MOVIES_CSV_PATH):
         print("Reading from movies.csv")
         df = pd.read_csv(MOVIES_CSV_PATH)
+
+        if "release_day" not in df.columns:
+            print("release_day not in columns")
+            return None
 
         # convert release_day and release_day_non_preview to datetime
         df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
@@ -393,8 +402,11 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     is_preview_by_weekday = []
 
     for weekday in range(7):
+        cond1 = bodf["day_of_week"] == weekday
+        cond2 = bodf["is_preview"] == False
+
         days = (
-            bodf[bodf["day_of_week"] == weekday]
+            bodf[cond1 & cond2]
             .sort_values("date")
             .reset_index(drop=True)
             .groupby("movie")
@@ -532,6 +544,8 @@ if __name__ == "__main__":
     sqlite_db_connect()
 
     print("Movies")
+
+    calc = calculate_movie_frame()
 
     df = get_movie_frame()
 

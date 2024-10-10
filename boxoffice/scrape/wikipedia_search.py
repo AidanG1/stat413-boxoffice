@@ -1,7 +1,8 @@
 from boxoffice.db.db import Movie
-import requests, re
+import re, requests
 from typing import NamedTuple, TypedDict
 from boxoffice.colors import bcolors
+from boxoffice.scrape.requests_session import s
 
 
 class WikipediaInfo(NamedTuple):
@@ -32,11 +33,6 @@ class ScrapeResults(TypedDict):
 
 
 LANGUAGE_CODE = "en"
-
-HEADERS = {
-    # 'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
-    "User-Agent": "Statistical Machine Learning Box Office Scraper, gerber@rice.edu"
-}
 
 BASE_URL = "https://api.wikimedia.org/core/v1/wikipedia/"
 ENDPOINT = "/search/page"
@@ -98,10 +94,7 @@ def get_wikipedia_information(
 
 
 if __name__ == "__main__":
-    s = requests.Session()
-
-    s.headers.update(HEADERS)
-    for movie in Movie.select()[50:100]:
+    for movie in Movie.select()[100:120]:
         if movie.wikipedia_key is not None:
             # continue
             pass

@@ -149,6 +149,15 @@ class BoxOfficeDay(BaseModel):
         constraints = [SQL("UNIQUE (date, movie_id)")]
 
 
+class WikipediaDay(BaseModel):
+    date = DateField()
+    views = IntegerField()
+    movie = ForeignKeyField(Movie, backref="wikipedia_days")
+
+    class Meta:
+        constraints = [SQL("UNIQUE (date, movie_id)")]
+
+
 class MovieLanguage(BaseModel):
     movie = ForeignKeyField(Movie, backref="languages")
     language = ForeignKeyField(Language, backref="movies")
@@ -178,6 +187,7 @@ def sqlite_db_connect():
         MovieLanguage,
         Distributor,
         MovieDistributor,
+        WikipediaDay,
     ]
 
     if sqlite_db.connect():

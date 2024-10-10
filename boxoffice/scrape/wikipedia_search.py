@@ -94,7 +94,12 @@ def get_wikipedia_information(
 
 
 if __name__ == "__main__":
-    for movie in Movie.select()[100:120]:
+    # only search the ones that meet keep requirements
+    movies = Movie.select().where(
+        Movie.meets_keep_requirements == True, Movie.wikipedia_key == None
+    )
+
+    for movie in movies[100:500]:
         if movie.wikipedia_key is not None:
             # continue
             pass

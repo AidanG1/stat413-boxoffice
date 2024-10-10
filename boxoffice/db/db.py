@@ -90,6 +90,8 @@ class Movie(BaseModel):
     wikipedia_key = CharField(null=True)
     wikipedia_id = IntegerField(null=True)
 
+    meets_keep_requirements = BooleanField(default=False)
+
     class Meta:
         constraints = [SQL("UNIQUE (slug)")]
 

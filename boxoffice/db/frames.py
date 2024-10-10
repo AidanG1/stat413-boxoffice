@@ -175,6 +175,7 @@ def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
 
         if "release_day" not in df.columns:
             print("release_day not in columns")
+            print(df.columns)
             return None
 
         # convert release_day and release_day_non_preview to datetime

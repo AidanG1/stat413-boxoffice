@@ -457,7 +457,10 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # get the total revenue within 365 days of release for each movie
     total_revenue_within_365_days = (
-        bodf.where(bodf["date"] <= bodf["date"] + datetime.timedelta(days=365))
+        bodf.where(
+            (bodf["date"] <= bodf["date"] + datetime.timedelta(days=365))
+            & (bodf["is_preview"] == False)
+        )
         .groupby("movie")["revenue"]
         .sum()
         .reset_index(drop=True)

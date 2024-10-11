@@ -8,6 +8,8 @@ from boxoffice.db.db import (
     MovieFranchise,
     Person,
     sqlite_db_connect,
+    MovieKeyword,
+    Keyword,
 )
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
@@ -131,6 +133,7 @@ class MovieCompleteSchema(JoinedMovieSchema):
     tue_wed_ratio: float = pa.Field(ge=0)
     wed_thu_ratio: float = pa.Field(ge=0)
     thu_fri_ratio: float = pa.Field(ge=0)
+    keywords_space_separated: str = pa.Field()
 
 
 def get_movie_frame() -> pd.DataFrame | None:
@@ -507,6 +510,30 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df["tue_wed_ratio"] = ratios[2]
     df["wed_thu_ratio"] = ratios[3]
     df["thu_fri_ratio"] = ratios[4]
+
+    # get the keywords for each movie
+    movie_ids = df["id"]
+
+    movie_keywords = (
+        MovieKeyword.select(MovieKeyword.movie, Keyword.name).join_from(
+            MovieKeyword, Keyword
+        )
+        # .where(MovieKeyword.movie_id << movie_ids)
+    )
+
+    # print information about the keywords
+    print(f"Found {len(movie_keywords)} keywords")
+
+    movie_keywords_df = pd.DataFrame(movie_keywords.dicts())
+
+    # group by movie and join the keywords
+    keywords = (
+        movie_keywords_df.sort_values("name")
+        .groupby("movie")["name"]
+        .apply(lambda x: " ".join(x), include_groups=False)
+    )
+
+    df["keywords_space_separated"] = keywords.reset_index(drop=True)
 
     df.to_csv(MOVIES_CSV_PATH, index=False)
 

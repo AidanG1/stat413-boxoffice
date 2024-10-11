@@ -46,6 +46,14 @@ def get_wikipedia_information(
         f"{BASE_URL}{LANGUAGE_CODE}{ENDPOINT}?q={movie_title} {movie_year}&limit=10",
     )
     data: ScrapeResults = r.json()
+
+    if "pages" not in data:
+        print(r.text)
+        print(r.headers)
+        # print in red
+        print(f"{bcolors.FAIL}No pages key in response{bcolors.ENDC}")
+        exit()
+
     results = data["pages"]
 
     if len(results) == 0:
@@ -99,7 +107,7 @@ if __name__ == "__main__":
         Movie.meets_keep_requirements == True, Movie.wikipedia_key == None
     )
 
-    for movie in movies[100:500]:
+    for movie in movies:
         if movie.wikipedia_key is not None:
             # continue
             pass

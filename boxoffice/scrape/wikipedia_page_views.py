@@ -37,9 +37,11 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
     # get the box office days
     box_office_days = (
         BoxOfficeDay.select()
-        .where(BoxOfficeDay.movie == movie)
+        .where(BoxOfficeDay.movie == movie.id)
         .order_by(BoxOfficeDay.date.asc())
     )
+
+    max_wikipedia_days = 365 + 60
 
     # get the start date
     start_date = box_office_days[0].date - datetime.timedelta(days=60)
@@ -47,6 +49,10 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
 
     # get the end date
     end_date = box_office_days[-1].date
+
+    if (end_date - start_date).days > max_wikipedia_days:
+        end_date = start_date + datetime.timedelta(days=max_wikipedia_days)
+
     end_date_str = convert_date_to_string(end_date)
 
     # get the wikipedia key
@@ -64,6 +70,15 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
 
     # get the json
     data: WikipediaPageViews = response.json()
+
+    if "items" not in data:
+        print(f"no items for {movie.title}")
+        if response.status_code == 429:
+            print(response.text)
+            print(response.status_code)
+            print(response.headers)
+            exit()
+        return
 
     # get the items
     items = data["items"]
@@ -85,9 +100,12 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
 
         wikipedia_days.append(wikipedia_day)
 
-    print([d.date for d in wikipedia_days])
+    # verify that the date and movie are unique together
+    wikipedia_days = list(set(wikipedia_days))
+
     # save the wikipedia days
-    WikipediaDay.bulk_create(wikipedia_days)
+    for wikipedia_day in wikipedia_days:
+        wikipedia_day.save()
 
     print(f"created {len(wikipedia_days)} wikipedia days for {movie.title}")
 
@@ -95,6 +113,6 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
 
 
 if __name__ == "__main__":
-    movies = Movie.select()
+    movies = Movie.select().where(Movie.wikipedia_key.is_null(False))
     for movie in movies:
         get_wikipedia_page_views(movie, s)

@@ -1,3 +1,4 @@
+from boxoffice.colors import bcolors
 from boxoffice.db.db import (
     BoxOfficeDay,
     CastOrCrew,
@@ -18,6 +19,7 @@ import datetime
 import os
 import pandas as pd
 import pandera as pa
+import numpy as np
 
 MOVIES_CSV_PATH = "boxoffice/db/data/movies.csv"
 
@@ -134,6 +136,14 @@ class MovieCompleteSchema(JoinedMovieSchema):
     wed_thu_ratio: float = pa.Field(ge=0)
     thu_fri_ratio: float = pa.Field(ge=0)
     keywords_space_separated: str = pa.Field()
+
+    # now a bunch of star power metrics
+    director_median_box_office: float = pa.Field(ge=0)
+    director_mean_box_office: float = pa.Field(ge=0)
+    weighted_crew_median_box_office: float = pa.Field(ge=0)
+    weighted_crew_mean_box_office: float = pa.Field(ge=0)
+    weighted_cast_median_box_office: float = pa.Field(ge=0)
+    weighted_cast_mean_box_office: float = pa.Field(ge=0)
 
 
 def get_movie_frame() -> pd.DataFrame | None:
@@ -537,6 +547,20 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     )
 
     df["keywords_space_separated"] = keywords.reset_index(drop=True)
+
+    # now calculate the star power metrics
+    # get the cast and crew
+    cast_crew = get_cast_crew_frame()
+
+    if cast_crew is None:
+        print(bcolors.FAIL + "Failed to get cast and crew" + bcolors.ENDC)
+        return None
+
+    # add a column to the cast_crew dataframe that is a list of 365 day revenue for each movie
+    cast_crew["365_day_revenue"] = pd.Series(np.array([]))
+
+    # sort the movies by release date
+    df_sorted = df.sort_values("release_day_non_preview")
 
     df.to_csv(MOVIES_CSV_PATH, index=False)
 

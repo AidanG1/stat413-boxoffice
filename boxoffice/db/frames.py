@@ -1,3 +1,4 @@
+from math import e
 from boxoffice.colors import bcolors
 from boxoffice.db.db import (
     BoxOfficeDay,
@@ -119,7 +120,9 @@ class MovieCompleteSchema(JoinedMovieSchema):
     preview_to_weekend_ratio: float = pa.Field(
         ge=0, nullable=True
     )  # some movies don't have previews
-    total_revenue_within_365_days: int = pa.Field(ge=0)
+    total_revenue_within_365_days: float = pa.Field(
+        ge=0
+    )  # sometimes this is a float and sometimes it is an int, I don't know why
     opening_weekend_to_total_ratio: float = pa.Field(ge=0)
     fri_sat_ratio_first_five: float = pa.Field(ge=0)
     sat_sun_ratio_first_five: float = pa.Field(ge=0)
@@ -557,10 +560,96 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         return None
 
     # add a column to the cast_crew dataframe that is a list of 365 day revenue for each movie
-    cast_crew["365_day_revenue"] = pd.Series(np.array([]))
+    cast_crew["365_day_revenue"] = pd.Series(np.nan)
 
     # sort the movies by release date
-    df_sorted = df.sort_values("release_day_non_preview")
+    df = df.sort_values("release_day_non_preview").reset_index(drop=True)
+
+    # initialize the fields
+    df["director_median_box_office"] = np.zeros(len(df))
+    df["director_mean_box_office"] = np.zeros(len(df))
+    df["weighted_crew_median_box_office"] = np.zeros(len(df))
+    df["weighted_crew_mean_box_office"] = np.zeros(len(df))
+    df["weighted_cast_median_box_office"] = np.zeros(len(df))
+    df["weighted_cast_mean_box_office"] = np.zeros(len(df))
+
+    # iterate through the movies and calculate the 365 day revenue for each movie
+    for i, row in df.head(10).iterrows():
+        movie_cast = cast_crew[cast_crew["movie"] == row["id"]]
+
+        # director_median_box_office: float = pa.Field(ge=0)
+        # director_mean_box_office: float = pa.Field(ge=0)
+        # weighted_crew_median_box_office: float = pa.Field(ge=0)
+        # weighted_crew_mean_box_office: float = pa.Field(ge=0)
+        # weighted_cast_median_box_office: float = pa.Field(ge=0)
+        # weighted_cast_mean_box_office: float = pa.Field(ge=0)
+
+        # need to update the previous fields
+        # get the director
+        director = movie_cast[
+            (movie_cast["role"] == "Director") & (movie_cast["is_cast"] == False)
+        ]
+
+        # get the crew
+        crew = movie_cast[movie_cast["is_cast"] == False].reset_index(drop=True)
+
+        crew_length = len(crew)
+
+        crew["reversed_order"] = crew_length - crew.index
+
+        # get the cast
+        cast = movie_cast[movie_cast["is_cast"] == True].reset_index(drop=True)
+
+        cast_length = len(cast)
+
+        cast["reversed_order"] = cast_length - cast.index
+
+        # now add the fields to the dataframe
+        if not director.empty and not director["365_day_revenue"].isna().all():
+            print(director["365_day_revenue"])
+            df.at[i, "director_median_box_office"] = director[
+                "365_day_revenue"
+            ].median()
+            df.at[i, "director_mean_box_office"] = director["365_day_revenue"].mean()
+        else:
+            df.at[i, "director_median_box_office"] = 0
+            df.at[i, "director_mean_box_office"] = 0
+
+        if crew_length > 0 and not crew["365_day_revenue"].empty:
+            df.at[i, "weighted_crew_median_box_office"] = np.average(
+                crew["365_day_revenue"], weights=crew["reversed_order"]
+            )
+            df.at[i, "weighted_crew_mean_box_office"] = np.average(
+                crew["365_day_revenue"], weights=crew["reversed_order"]
+            )
+        else:
+            df.at[i, "weighted_crew_median_box_office"] = 0
+            df.at[i, "weighted_crew_mean_box_office"] = 0
+
+        if cast_length > 0 and not cast["365_day_revenue"].empty:
+            df.at[i, "weighted_cast_median_box_office"] = np.average(
+                cast["365_day_revenue"], weights=cast["reversed_order"]
+            )
+            df.at[i, "weighted_cast_mean_box_office"] = np.average(
+                cast["365_day_revenue"], weights=cast["reversed_order"]
+            )
+        else:
+            df.at[i, "weighted_cast_median_box_office"] = 0
+            df.at[i, "weighted_cast_mean_box_office"] = 0
+
+        # get the movie id
+        movie_id = row["id"]
+
+        # get the revenue for each day
+        revenue = row["total_revenue_within_365_days"]
+
+        # append the revenue to the list in cast_crew
+        cast_crew.loc[cast_crew["movie"] == movie_id, "365_day_revenue"].apply(
+            lambda x: x.append(revenue) if isinstance(x, list) else [revenue]
+        )
+
+        # print the values in 365_day_revenue
+        # print(cast_crew[cast_crew["movie"] == movie_id]["365_day_revenue"])
 
     df.to_csv(MOVIES_CSV_PATH, index=False)
 

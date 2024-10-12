@@ -141,12 +141,12 @@ class MovieCompleteSchema(JoinedMovieSchema):
     keywords_space_separated: str = pa.Field()
 
     # now a bunch of star power metrics
-    director_median_box_office: float = pa.Field(ge=0)
-    director_mean_box_office: float = pa.Field(ge=0)
-    weighted_crew_median_box_office: float = pa.Field(ge=0)
-    weighted_crew_mean_box_office: float = pa.Field(ge=0)
-    weighted_cast_median_box_office: float = pa.Field(ge=0)
-    weighted_cast_mean_box_office: float = pa.Field(ge=0)
+    director_median_box_office: float = pa.Field(ge=0, nullable=True)
+    director_mean_box_office: float = pa.Field(ge=0, nullable=True)
+    weighted_crew_median_box_office: float = pa.Field(ge=0, nullable=True)
+    weighted_crew_mean_box_office: float = pa.Field(ge=0, nullable=True)
+    weighted_cast_median_box_office: float = pa.Field(ge=0, nullable=True)
+    weighted_cast_mean_box_office: float = pa.Field(ge=0, nullable=True)
 
 
 def get_movie_frame() -> pd.DataFrame | None:

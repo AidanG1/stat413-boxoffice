@@ -26,9 +26,9 @@ import numpy as np
 MOVIES_CSV_PATH = "boxoffice/db/data/movies.csv"
 
 # make sure that the movies_csv_path starts from stat413-boxoffice as the parent
-while not os.path.exists(MOVIES_CSV_PATH):
-    print(f"movies.csv not found at {MOVIES_CSV_PATH}")
-    MOVIES_CSV_PATH = f"../{MOVIES_CSV_PATH}"
+# while not os.path.exists(MOVIES_CSV_PATH):
+#     print(f"movies.csv not found at {MOVIES_CSV_PATH}")
+#     MOVIES_CSV_PATH = f"../{MOVIES_CSV_PATH}"
 
 
 class MovieSchema(pa.DataFrameModel):

@@ -60,6 +60,7 @@ class MovieSchema(pa.DataFrameModel):
     # production_method: str = pa.Field(isin=PRODUCTION_METHOD)
     source: str = pa.Field()
     # source: str = pa.Field(isin=SOURCE)
+    poster: str = pa.Field(nullable=True)
 
 
 class BoxOfficeDaySchema(pa.DataFrameModel):
@@ -304,6 +305,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Movie.genre,
             Movie.production_method,
             Movie.source,
+            Movie.poster,
             fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
             fn.MIN(BoxOfficeDay.date).alias("release_day"),
             MovieDistributor.distributor.alias("distributor_id"),
@@ -577,7 +579,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         return None
 
     # add a column to the cast_crew dataframe that is a list of 365 day revenue for each movie
-    cast_crew["365_day_revenue"] = pd.Series(np.nan)
+    cast_crew["365_day_revenue"] = pd.Series(dtype=object)
 
     # sort the movies by release date
     df = df.sort_values("release_day_non_preview").reset_index(drop=True)
@@ -591,7 +593,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df["weighted_cast_mean_box_office"] = np.zeros(len(df))
 
     # iterate through the movies and calculate the 365 day revenue for each movie
-    for i, row in df.head(10).iterrows():
+    for i, row in df.iterrows():
         movie_cast = cast_crew[cast_crew["movie"] == row["id"]]
 
         # director_median_box_office: float = pa.Field(ge=0)

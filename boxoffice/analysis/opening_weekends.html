@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opening Weekends Analysis</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+
+<body>
+    <main>
+        <h1>
+            Top 20 Opening Weekends
+        </h1>
+        <table id="data" style="width: 100vw;" <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Title</th>
+                <th>Opening Weekend</th>
+                <th>Poster</th>
+            </tr>
+            </thead>
+            <tbody>
+                <!-- Data will be inserted here -->
+            </tbody>
+        </table>
+    </main>
+</body>
+<script>
+    // first step is to send a fetch to localhost:8080 and get the csv
+    fetch('http://localhost:8080/')
+        .then(response => response.text())
+        .then(data => {
+            let parsedData = d3.csvParse(data);
+
+            // sort the parsed data by opening_weekend
+            parsedData = parsedData.sort((a, b) => b.opening_weekend_revenue - a.opening_weekend_revenue);
+            console.log(parsedData);
+
+            // just take the top 10
+            parsedData = parsedData.slice(0, 20);
+
+            // now we have the data, we can start to build the table
+            const table = document.getElementById('data');
+
+            // we can now loop through the data and append it to the table
+            parsedData.forEach((dataRow, index) => {
+                const row = table.insertRow();
+
+                const rank = row.insertCell();
+                rank.textContent = index + 1;
+
+                const title = row.insertCell();
+                title.textContent = dataRow.title;
+
+                const openingWeekend = row.insertCell();
+
+                format_to_millions = (revenue) => {
+                    return (revenue / 1000000).toFixed(2) + 'M';
+                }
+
+                openingWeekend.textContent = format_to_millions(dataRow.opening_weekend_revenue);
+
+                const poster = row.insertCell();
+                const img = document.createElement('img');
+
+                img.src = dataRow.poster;
+                img.alt = dataRow.title;
+                img.width = 100;
+
+                poster.appendChild(img);
+
+            });
+        });
+</script>
+
+<style>
+    /* center the text within the table rows */
+    td {
+        text-align: center;
+    }
+</style>
+
+</html>

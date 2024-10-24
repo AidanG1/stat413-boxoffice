@@ -23,12 +23,21 @@ import pandas as pd
 import pandera as pa
 import numpy as np
 
-MOVIES_CSV_PATH = "boxoffice/db/data/movies.csv"
+MOVIES_CSV_BASE_PATH = "boxoffice/db/data"
+MOVIES_DB_PATH = f"{MOVIES_CSV_BASE_PATH}/data.sqlite"
+MOVIES_CSV_PATH = f"{MOVIES_CSV_BASE_PATH}/movies.csv"
+MAX_ITER = 5
 
 # make sure that the movies_csv_path starts from stat413-boxoffice as the parent
-# while not os.path.exists(MOVIES_CSV_PATH):
-#     print(f"movies.csv not found at {MOVIES_CSV_PATH}")
-#     MOVIES_CSV_PATH = f"../{MOVIES_CSV_PATH}"
+while not os.path.exists(MOVIES_DB_PATH):
+    MAX_ITER -= 1
+    if MAX_ITER == 0:
+        print("Could not find the movies database")
+        break
+    print(f"MOVIES_DB_PATH: {MOVIES_DB_PATH}")
+    MOVIES_CSV_BASE_PATH = os.path.join("..", MOVIES_CSV_BASE_PATH)
+    MOVIES_DB_PATH = f"{MOVIES_CSV_BASE_PATH}/data.sqlite"
+    MOVIES_CSV_PATH = f"{MOVIES_CSV_BASE_PATH}/movies.csv"
 
 
 class MovieSchema(pa.DataFrameModel):

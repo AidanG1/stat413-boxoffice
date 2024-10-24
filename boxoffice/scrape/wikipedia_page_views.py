@@ -2,6 +2,7 @@ from boxoffice.db.db import Movie, BoxOfficeDay, WikipediaDay
 import requests, datetime
 from typing import TypedDict
 from boxoffice.scrape.requests_session import s
+from boxoffice.colors import bcolors
 
 
 # core goal is to scrape the wikipedia page views 60 days before release and every day that the movie is out
@@ -35,11 +36,7 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
         return
 
     # get the box office days
-    box_office_days = (
-        BoxOfficeDay.select()
-        .where(BoxOfficeDay.movie == movie.id)
-        .order_by(BoxOfficeDay.date.asc())
-    )
+    box_office_days = BoxOfficeDay.select().where(BoxOfficeDay.movie == movie.id).order_by(BoxOfficeDay.date.asc())
 
     max_wikipedia_days = 365 + 60
 
@@ -72,7 +69,8 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
     data: WikipediaPageViews = response.json()
 
     if "items" not in data:
-        print(f"no items for {movie.title}")
+        # print in red, no items for the movie
+        print(f"{bcolors.FAIL}no items for {movie.title}{bcolors.ENDC} with url {url}")
         if response.status_code == 429:
             print(response.text)
             print(response.status_code)

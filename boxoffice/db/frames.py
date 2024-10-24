@@ -12,6 +12,7 @@ from boxoffice.db.db import (
     sqlite_db_connect,
     MovieKeyword,
     Keyword,
+    WikipediaDay,
 )
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
@@ -38,9 +39,7 @@ class MovieSchema(pa.DataFrameModel):
     release_year: int = pa.Field(ge=0)
     mpaa_rating: str = pa.Field()
     # mpaa_rating: str = pa.Field(isin=MPAA_RATING)
-    running_time: float = pa.Field(
-        nullable=True
-    )  # this can be -1 if the runtime is unknown
+    running_time: float = pa.Field(nullable=True)  # this can be -1 if the runtime is unknown
     synopsis: str = pa.Field(nullable=True)
     mpaa_rating_reason: str = pa.Field(nullable=True)
     budget: float = pa.Field(ge=0, nullable=True, coerce=True)
@@ -87,9 +86,7 @@ class MovieSchemaWithBoxOffice(MovieSchema):
     days_over_1000_theaters: int = pa.Field(ge=0)
     days_over_1000000_revenue: int = pa.Field(ge=0)
     days_over_100000_revenue: int = pa.Field(ge=0)
-    preview_sum: float = pa.Field(
-        ge=0, nullable=True
-    )  # some movies don't have previews
+    preview_sum: float = pa.Field(ge=0, nullable=True)  # some movies don't have previews
 
 
 class JoinedMovieSchema(MovieSchemaWithBoxOffice):
@@ -103,13 +100,30 @@ class JoinedMovieSchema(MovieSchemaWithBoxOffice):
     )  # why is this a float? I don't want it to be but things break otherwise
 
 
-class MovieCompleteSchema(JoinedMovieSchema):
+class MovieWikipediaSchema(JoinedMovieSchema):
+    wikipedia_pre_release_cumulative_views: float = pa.Field(
+        ge=0
+    )  # cumulative views from 60 days before release until 1 day before release
+    wikipedia_pre_release_monday_views: float = pa.Field(
+        ge=0
+    )  # cumulative views from 30 days before release until 4 days before first Friday
+    wikipedia_pre_release_week_monday: float = pa.Field(
+        ge=0
+    )  # cumulative views from 11 days before release until 4 days before first Friday
+    wikipedia_pre_release_three_monday: float = pa.Field(
+        ge=0
+    )  # cumulative views from 7 days before release until 4 days before first Friday
+    wikipedia_cumulative_views: float = pa.Field(
+        ge=0
+    )  # cumulative views from 30 days before release for every day while in theaters
+
+
+class MovieCompleteSchema(MovieWikipediaSchema):
     release_day_of_week: int = pa.Field()  # 0 is Monday, 6 is Sunday
     release_day_of_week_non_preview: int = pa.Field()  # 0 is Monday, 6 is Sunday
+    release_day_first_friday: datetime.date = pa.Field()
     release_month: int = pa.Field()  # 1 is January, 12 is December
-    release_day_of_month: int = (
-        pa.Field()
-    )  # 1 is the first day of the month, 31 is the last day of the month
+    release_day_of_month: int = pa.Field()  # 1 is the first day of the month, 31 is the last day of the month
     opening_weekend_revenue: int = pa.Field(
         ge=0
     )  # this shouldn't be nullable but somehow there is one case where it is
@@ -117,9 +131,7 @@ class MovieCompleteSchema(JoinedMovieSchema):
     # largest_weekend_release_week: int = pa.Field(ge=0)
     first_five_days_revenue: float = pa.Field(ge=0)
     first_seven_days_revenue: float = pa.Field(ge=0)
-    preview_to_weekend_ratio: float = pa.Field(
-        ge=0, nullable=True
-    )  # some movies don't have previews
+    preview_to_weekend_ratio: float = pa.Field(ge=0, nullable=True)  # some movies don't have previews
     total_revenue_within_365_days: float = pa.Field(
         ge=0
     )  # sometimes this is a float and sometimes it is an int, I don't know why
@@ -196,9 +208,7 @@ def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
 
         # convert release_day and release_day_non_preview to datetime
         df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
-        df["release_day_non_preview"] = pd.to_datetime(
-            df["release_day_non_preview"]
-        ).dt.date
+        df["release_day_non_preview"] = pd.to_datetime(df["release_day_non_preview"]).dt.date
 
         return DataFrame[MovieCompleteSchema](df)
     else:
@@ -336,6 +346,9 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         entry["release_day_non_preview"] = datetime.datetime.strptime(
             entry["release_day_non_preview"], "%Y-%m-%d"
         ).date()
+        entry["release_day_first_friday"] = entry["release_day_non_preview"] + datetime.timedelta(
+            days=(4 - entry["release_day_non_preview"].weekday())
+        )
 
     movies_df = DataFrame[JoinedMovieSchema](dicts)
 
@@ -345,9 +358,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     kept_ids = movies_df["id"]
 
-    print(
-        f"There are {len(kept_ids)} movies in the movie dataframe, now filtering out the box office days"
-    )
+    print(f"There are {len(kept_ids)} movies in the movie dataframe, now filtering out the box office days")
 
     # need to calculate the release day of the week
     bodf = get_box_office_day_frame()
@@ -376,9 +387,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     )
     bodf = bodf[bodf["movie"].isin(movies_df["id"])]
 
-    print(
-        f"Filtered out {prior_len - len(bodf)} box office days, there are now {len(bodf)} box office days"
-    )
+    print(f"Filtered out {prior_len - len(bodf)} box office days, there are now {len(bodf)} box office days")
 
     # add the columns to the df
     # copy the movies_df but without any typing
@@ -388,30 +397,13 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     df["release_day_of_week"] = df["release_day"].apply(lambda x: x.weekday())
 
-    df["release_day_of_week_non_preview"] = df["release_day_non_preview"].apply(
-        lambda x: x.weekday()
-    )
+    df["release_day_of_week_non_preview"] = df["release_day_non_preview"].apply(lambda x: x.weekday())
 
     df["release_month"] = df["release_day_non_preview"].apply(lambda x: x.month)
 
     df["release_day_of_month"] = df["release_day_non_preview"].apply(lambda x: x.day)
 
     # get the opening weekend revenue for each movie. This is the sum of the first Friday, Saturday, and Sunday plus Thursday if there was a preview. Movies may not open on a Friday, so need to specifically get the first of each of these
-    # first_five_of_each_day = []
-    # first_each_day = []
-    # total_each_day = []
-    # is_preview = []
-    # for weekday in range(7):
-    #     days = (
-    #         bodf.where(bodf["day_of_week"] == weekday)
-    #         .sort_values("date")
-    #         .groupby("movie")
-    #     )
-
-    #     first_five_of_each_day.append(days["revenue"].head(5).sum())
-    #     first_each_day.append(days["revenue"].head(1).sum())
-    #     total_each_day.append(days["revenue"].sum())
-    #     is_preview.append(days["is_preview"].head(1).sum())
 
     first_five_by_weekday = []
     first_by_weekday = []
@@ -422,30 +414,15 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         cond1 = bodf["day_of_week"] == weekday
         cond2 = bodf["is_preview"] == False
 
-        days = (
-            bodf[cond1 & cond2]
-            .sort_values("date")
-            .reset_index(drop=True)
-            .groupby("movie")
-        )
+        days = bodf[cond1 & cond2].sort_values("date").reset_index(drop=True).groupby("movie")
 
-        first_five_by_weekday.append(
-            days.apply(lambda x: x.head(5)["revenue"].sum(), include_groups=False)
-        )
-        first_by_weekday.append(
-            days.apply(lambda x: x.head(1)["revenue"].sum(), include_groups=False)
-        )
-        total_by_weekday.append(
-            days.apply(lambda x: x["revenue"].sum(), include_groups=False)
-        )
-        is_preview_by_weekday.append(
-            days.apply(lambda x: x.head(1)["is_preview"].sum(), include_groups=False)
-        )
+        first_five_by_weekday.append(days.apply(lambda x: x.head(5)["revenue"].sum(), include_groups=False))
+        first_by_weekday.append(days.apply(lambda x: x.head(1)["revenue"].sum(), include_groups=False))
+        total_by_weekday.append(days.apply(lambda x: x["revenue"].sum(), include_groups=False))
+        is_preview_by_weekday.append(days.apply(lambda x: x.head(1)["is_preview"].sum(), include_groups=False))
 
     # opening weekend revenue is the sum of the first Friday, Saturday, and Sunday plus Thursday if there was a preview
-    opening_weekend_revenue = (
-        first_by_weekday[4] + first_by_weekday[5] + first_by_weekday[6]
-    ).reset_index(drop=True)
+    opening_weekend_revenue = (first_by_weekday[4] + first_by_weekday[5] + first_by_weekday[6]).reset_index(drop=True)
 
     # replace NaNs with 0
     opening_weekend_revenue = opening_weekend_revenue.fillna(0)
@@ -470,40 +447,27 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # get the total revenue within 365 days of release for each movie
     total_revenue_within_365_days = (
-        bodf.where(
-            (bodf["date"] <= bodf["date"] + datetime.timedelta(days=365))
-            & (bodf["is_preview"] == False)
-        )
+        bodf.where((bodf["date"] <= bodf["date"] + datetime.timedelta(days=365)) & (bodf["is_preview"] == False))
         .groupby("movie")["revenue"]
         .sum()
         .reset_index(drop=True)
     )
 
     # get the opening weekend to total ratio for each movie
-    opening_weekend_to_total_ratio = (
-        opening_weekend_revenue / total_revenue_within_365_days
-    )
-    opening_weekend_to_total_ratio = opening_weekend_to_total_ratio.reset_index(
-        drop=True
-    )
+    opening_weekend_to_total_ratio = opening_weekend_revenue / total_revenue_within_365_days
+    opening_weekend_to_total_ratio = opening_weekend_to_total_ratio.reset_index(drop=True)
 
     # now get the ratios for each day of the week
     first_five_ratios = []
 
     for i in range(7):
-        first_five_ratios.append(
-            (first_five_by_weekday[i] / first_five_by_weekday[i - 1]).reset_index(
-                drop=True
-            )
-        )
+        first_five_ratios.append((first_five_by_weekday[i] / first_five_by_weekday[i - 1]).reset_index(drop=True))
 
     # now get the ratios for each day of the week
     ratios = []
 
     for i in range(7):
-        ratios.append(
-            (total_by_weekday[i] / total_by_weekday[i - 1]).reset_index(drop=True)
-        )
+        ratios.append((total_by_weekday[i] / total_by_weekday[i - 1]).reset_index(drop=True))
 
     # now we are done
     df["opening_weekend_revenue"] = opening_weekend_revenue.fillna(0)
@@ -531,9 +495,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     movie_ids = df["id"]
 
     movie_keywords = (
-        MovieKeyword.select(MovieKeyword.movie, Keyword.name).join_from(
-            MovieKeyword, Keyword
-        )
+        MovieKeyword.select(MovieKeyword.movie, Keyword.name).join_from(MovieKeyword, Keyword)
         # .where(MovieKeyword.movie_id << movie_ids)
     )
 
@@ -586,9 +548,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
         # need to update the previous fields
         # get the director
-        director = movie_cast[
-            (movie_cast["role"] == "Director") & (movie_cast["is_cast"] == False)
-        ]
+        director = movie_cast[(movie_cast["role"] == "Director") & (movie_cast["is_cast"] == False)]
 
         # get the crew
         crew = movie_cast[movie_cast["is_cast"] == False].reset_index(drop=True)
@@ -607,9 +567,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         # now add the fields to the dataframe
         if not director.empty and not director["365_day_revenue"].isna().all():
             print(director["365_day_revenue"])
-            df.at[i, "director_median_box_office"] = director[
-                "365_day_revenue"
-            ].median()
+            df.at[i, "director_median_box_office"] = director["365_day_revenue"].median()
             df.at[i, "director_mean_box_office"] = director["365_day_revenue"].mean()
         else:
             df.at[i, "director_median_box_office"] = 0
@@ -650,6 +608,104 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
         # print the values in 365_day_revenue
         # print(cast_crew[cast_crew["movie"] == movie_id]["365_day_revenue"])
+
+    # now do wikipedia stuff
+    wikipedia_days = WikipediaDay.select()
+
+    wikipedia_df = DataFrame(wikipedia_days.dicts())
+
+    # need to join with the movies dataframe to get release day information
+    wikipedia_df = wikipedia_df.merge(
+        df[["release_day", "release_day_non_preview", "release_day_first_friday", "id"]],
+        left_on="movie",
+        right_on="id",
+    )
+
+    wikipedia_df.reset_index(drop=True, inplace=True)
+
+    # print the columns
+    print(f"Columns in wikipedia_df: {wikipedia_df.columns}")
+
+    # get the cumulative views for each movie
+    cumulative_views = wikipedia_df.groupby("movie")["views"].sum()
+
+    wikipedia_pre_release_cumulative_views = (
+        wikipedia_df.where((wikipedia_df["date"] < wikipedia_df["release_day_non_preview"]))
+        .groupby("movie")["views"]
+        .sum()
+    )
+
+    cond1 = wikipedia_df["date"] >= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=30)
+    cond2 = wikipedia_df["date"] <= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=4)
+
+    wikipedia_pre_release_monday_views = wikipedia_df.where(cond1 & cond2).groupby("movie")["views"].sum()
+
+    cond1 = wikipedia_df["date"] >= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=11)
+    cond2 = wikipedia_df["date"] <= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=4)
+
+    wikipedia_pre_release_week_monday = wikipedia_df.where(cond1 & cond2).groupby("movie")["views"].sum()
+
+    cond1 = wikipedia_df["date"] >= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=7)
+    cond2 = wikipedia_df["date"] <= wikipedia_df["release_day_first_friday"] - datetime.timedelta(days=4)
+
+    wikipedia_pre_release_three_monday = wikipedia_df.where(cond1 & cond2).groupby("movie")["views"].sum()
+
+    # print all of the lengths
+    print(
+        f"cumulative_views: {len(cumulative_views)}, wikipedia_pre_release_cumulative_views: {len(wikipedia_pre_release_cumulative_views)}, wikipedia_pre_release_monday_views: {len(wikipedia_pre_release_monday_views)}, wikipedia_pre_release_week_monday: {len(wikipedia_pre_release_week_monday)}, wikipedia_pre_release_three_monday: {len(wikipedia_pre_release_three_monday)}, cumulative index: {len(cumulative_views.index)}"
+    )
+
+    # join the columns together so that minimum length is used
+    merged_accumulated = pd.DataFrame(
+        {
+            "movie_id": wikipedia_pre_release_three_monday.index,
+            "wikipedia_pre_release_three_monday": wikipedia_pre_release_three_monday,
+        }
+    )
+
+    # join the columns together so that minimum length is used
+    merged_accumulated = merged_accumulated.merge(
+        pd.DataFrame(
+            {
+                "movie_2": cumulative_views.index,
+                "wikipedia_pre_release_week_monday": wikipedia_pre_release_week_monday,
+                "wikipedia_pre_release_monday_views": wikipedia_pre_release_monday_views,
+                "wikipedia_pre_release_cumulative_views": wikipedia_pre_release_cumulative_views,
+                "wikipedia_cumulative_views": cumulative_views,
+            }
+        ),
+        left_on="movie_id",
+        right_on="movie_2",
+    )
+
+    print(f"Columns in merged_accumulated: {merged_accumulated.columns}")
+
+    # now merge the wikipedia dataframe with the movies dataframe, setting to 0 if there are no wikipedia views
+    df = df.merge(
+        merged_accumulated[
+            [
+                "movie_id",
+                "wikipedia_pre_release_cumulative_views",
+                "wikipedia_pre_release_monday_views",
+                "wikipedia_pre_release_week_monday",
+                "wikipedia_pre_release_three_monday",
+                "wikipedia_cumulative_views",
+            ]
+        ],
+        how="left",
+        left_on="id",
+        right_on="movie_id",
+    )
+
+    # fill in the NaNs with 0
+    df["wikipedia_pre_release_cumulative_views"] = df["wikipedia_pre_release_cumulative_views"].fillna(0)
+    df["wikipedia_pre_release_monday_views"] = df["wikipedia_pre_release_monday_views"].fillna(0)
+    df["wikipedia_pre_release_week_monday"] = df["wikipedia_pre_release_week_monday"].fillna(0)
+    df["wikipedia_pre_release_three_monday"] = df["wikipedia_pre_release_three_monday"].fillna(0)
+    df["wikipedia_cumulative_views"] = df["wikipedia_cumulative_views"].fillna(0)
+
+    # remove the movie_id column
+    df.drop(columns=["movie_id"], inplace=True)
 
     df.to_csv(MOVIES_CSV_PATH, index=False)
 

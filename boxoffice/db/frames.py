@@ -136,8 +136,7 @@ class MovieCompleteSchema(MovieWikipediaSchema):
     opening_weekend_revenue: int = pa.Field(
         ge=0
     )  # this shouldn't be nullable but somehow there is one case where it is
-    # largest_weekend_revenue: float = pa.Field(ge=0)
-    # largest_weekend_release_week: int = pa.Field(ge=0)
+    opening_wide_revenue: float = pa.Field(ge=0)  # this is the revenue for the first weekend in over 1000 theaters
     first_five_days_revenue: float = pa.Field(ge=0)
     first_seven_days_revenue: float = pa.Field(ge=0)
     preview_to_weekend_ratio: float = pa.Field(ge=0, nullable=True)  # some movies don't have previews
@@ -218,6 +217,7 @@ def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
         # convert release_day and release_day_non_preview to datetime
         df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
         df["release_day_non_preview"] = pd.to_datetime(df["release_day_non_preview"]).dt.date
+        df["release_day_first_friday"] = pd.to_datetime(df["release_day_first_friday"]).dt.date
 
         return DataFrame[MovieCompleteSchema](df)
     else:
@@ -369,6 +369,13 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     print(f"There are {len(kept_ids)} movies in the movie dataframe, now filtering out the box office days")
 
+    # now filter out re-releases. A movie is a re-release if the year of its release_day is not the same as its release_year
+    prior_len = len(movies_df)
+    # make sure release_day is a date
+    movies_df["release_day"] = pd.to_datetime(movies_df["release_day"])
+    movies_df = movies_df[movies_df["release_day"].dt.year == movies_df["release_year"]]
+    print(f"Filtered out {prior_len - len(movies_df)} re-releases, there are now {len(movies_df)} movies")
+
     # need to calculate the release day of the week
     bodf = get_box_office_day_frame()
 
@@ -477,6 +484,45 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     for i in range(7):
         ratios.append((total_by_weekday[i] / total_by_weekday[i - 1]).reset_index(drop=True))
+
+    # now want to do wide weekend revenue, normally wide would be considered 1000 theaters, but leaving some wiggle room
+    for movie in df["id"]:
+        fridays = bodf[(bodf["movie"] == movie) & (bodf["day_of_week"] == 4) & (bodf["theaters"] >= 750)].sort_values(
+            "date"
+        )
+
+        saturdays = bodf[
+            (bodf["movie"] == movie) & (bodf["day_of_week"] == 5) & (bodf["theaters"] >= 750)
+        ].sort_values("date")
+
+        sundays = bodf[(bodf["movie"] == movie) & (bodf["day_of_week"] == 6) & (bodf["theaters"] >= 750)].sort_values(
+            "date"
+        )
+
+        if not fridays.empty and not saturdays.empty and not sundays.empty:
+            first_friday = fridays.head(1)
+            first_saturday = saturdays.head(1)
+            first_sunday = sundays.head(1)
+
+            # make sure the dates are all one apart
+            if (
+                first_friday["date"].values[0]
+                == first_saturday["date"].values[0] - datetime.timedelta(days=1)
+                == first_sunday["date"].values[0] - datetime.timedelta(days=2)
+            ):
+                weekend_revenue = (
+                    first_friday["revenue"].values[0]
+                    + first_saturday["revenue"].values[0]
+                    + first_sunday["revenue"].values[0]
+                )
+
+                df.loc[df["id"] == movie, "opening_wide_revenue"] = weekend_revenue
+            else:
+                print(f"Dates are not one apart for movie {movie}, skipping wide weekend revenue")
+                df.loc[df["id"] == movie, "opening_wide_revenue"] = 0
+        else:
+            print(f"Could not find wide weekend revenue for movie {movie}")
+            df.loc[df["id"] == movie, "opening_wide_revenue"] = 0
 
     # now we are done
     df["opening_weekend_revenue"] = opening_weekend_revenue.fillna(0)
@@ -712,6 +758,9 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df["wikipedia_pre_release_week_monday"] = df["wikipedia_pre_release_week_monday"].fillna(0)
     df["wikipedia_pre_release_three_monday"] = df["wikipedia_pre_release_three_monday"].fillna(0)
     df["wikipedia_cumulative_views"] = df["wikipedia_cumulative_views"].fillna(0)
+
+    # make sure release_day is a date
+    df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
 
     # remove the movie_id column
     df.drop(columns=["movie_id"], inplace=True)

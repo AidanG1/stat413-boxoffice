@@ -578,8 +578,8 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         print(bcolors.FAIL + "Failed to get cast and crew" + bcolors.ENDC)
         return None
 
-    # add a column to the cast_crew dataframe that is a list of 365 day revenue for each movie
-    cast_crew["365_day_revenue"] = pd.Series(dtype=object)
+    # add a column to the cast_crew dataframe that is a list of 365 day revenue for each movie, \frac{1}{0.25x+1} scale by for credit order and cast order
+    scaled_person_revenue: list[None | list[float]] = [None] * len(cast_crew["person"].unique())
 
     # sort the movies by release date
     df = df.sort_values("release_day_non_preview").reset_index(drop=True)
@@ -594,6 +594,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # iterate through the movies and calculate the 365 day revenue for each movie
     for i, row in df.iterrows():
+        current_movie_revenue = row["total_revenue_within_365_days"]
         movie_cast = cast_crew[cast_crew["movie"] == row["id"]]
 
         # director_median_box_office: float = pa.Field(ge=0)
@@ -605,66 +606,84 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
         # need to update the previous fields
         # get the director
-        director = movie_cast[(movie_cast["role"] == "Director") & (movie_cast["is_cast"] == False)]
+        cond_false = movie_cast["is_cast"] == False
+        cond_director = movie_cast["role"] == "Director"
+        cond_true = movie_cast["is_cast"] == True
+
+        director_ids = movie_cast[cond_director & cond_false]["person"].tolist()
+        director_ids.reverse()
 
         # get the crew
-        crew = movie_cast[movie_cast["is_cast"] == False].reset_index(drop=True)
-
-        crew_length = len(crew)
-
-        crew["reversed_order"] = crew_length - crew.index
+        crew_ids = movie_cast[cond_false]["person"].tolist()
+        crew_ids.reverse()
 
         # get the cast
-        cast = movie_cast[movie_cast["is_cast"] == True].reset_index(drop=True)
+        cast_ids = movie_cast[cond_true]["person"].tolist()
+        cast_ids.reverse()
 
-        cast_length = len(cast)
+        if len(director_ids) > 0:
+            # need to get the values from person_revenue
+            director_revenues = []
+            for director_id in director_ids:
+                spr = scaled_person_revenue[director_id]
+                if spr is not None:
+                    director_revenues.extend(spr)
 
-        cast["reversed_order"] = cast_length - cast.index
-
-        # now add the fields to the dataframe
-        if not director.empty and not director["365_day_revenue"].isna().all():
-            print(director["365_day_revenue"])
-            df.at[i, "director_median_box_office"] = director["365_day_revenue"].median()
-            df.at[i, "director_mean_box_office"] = director["365_day_revenue"].mean()
+            df.at[i, "director_median_box_office"] = np.median(director_revenues)
+            df.at[i, "director_mean_box_office"] = np.mean(director_revenues)
         else:
             df.at[i, "director_median_box_office"] = 0
             df.at[i, "director_mean_box_office"] = 0
 
-        if crew_length > 0 and not crew["365_day_revenue"].empty:
-            df.at[i, "weighted_crew_median_box_office"] = np.average(
-                crew["365_day_revenue"], weights=crew["reversed_order"]
-            )
-            df.at[i, "weighted_crew_mean_box_office"] = np.average(
-                crew["365_day_revenue"], weights=crew["reversed_order"]
-            )
+        if len(crew_ids) > 0:
+            crew_revenues = []
+            for crew_id in crew_ids:
+                spr = scaled_person_revenue[crew_id]
+                if spr is not None:
+                    crew_revenues.extend(spr)
+
+            df.at[i, "weighted_crew_median_box_office"] = np.median(crew_revenues)
+            df.at[i, "weighted_crew_mean_box_office"] = np.mean(crew_revenues)
         else:
             df.at[i, "weighted_crew_median_box_office"] = 0
             df.at[i, "weighted_crew_mean_box_office"] = 0
 
-        if cast_length > 0 and not cast["365_day_revenue"].empty:
-            df.at[i, "weighted_cast_median_box_office"] = np.average(
-                cast["365_day_revenue"], weights=cast["reversed_order"]
-            )
-            df.at[i, "weighted_cast_mean_box_office"] = np.average(
-                cast["365_day_revenue"], weights=cast["reversed_order"]
-            )
+        if len(cast_ids) > 0:
+            cast_revenues = []
+            for cast_id in cast_ids:
+                spr = scaled_person_revenue[cast_id]
+                if spr is not None:
+                    cast_revenues.extend(spr)
+
+            df.at[i, "weighted_cast_median_box_office"] = np.median(cast_revenues)
+            df.at[i, "weighted_cast_mean_box_office"] = np.mean(cast_revenues)
         else:
             df.at[i, "weighted_cast_median_box_office"] = 0
             df.at[i, "weighted_cast_mean_box_office"] = 0
 
-        # get the movie id
-        movie_id = row["id"]
+        # now update the scaled_person_revenue
+        for i, person_id in enumerate(cast_ids):
+            scaled_revenue = current_movie_revenue / (0.25 * i + 1)
+            spr = scaled_person_revenue[person_id]
+            if spr is None:
+                scaled_person_revenue[person_id] = [scaled_revenue]
+            else:
+                scaled_person_revenue[person_id].append(scaled_revenue)
 
-        # get the revenue for each day
-        revenue = row["total_revenue_within_365_days"]
+        for i, person_id in enumerate(crew_ids):
+            scaled_revenue = current_movie_revenue / (0.25 * i + 1)
+            spr = scaled_person_revenue[person_id]
+            if spr is None:
+                scaled_person_revenue[person_id] = [scaled_revenue]
+            else:
+                scaled_person_revenue[person_id].append(scaled_revenue)
 
-        # append the revenue to the list in cast_crew
-        cast_crew.loc[cast_crew["movie"] == movie_id, "365_day_revenue"].apply(
-            lambda x: x.append(revenue) if isinstance(x, list) else [revenue]
-        )
-
-        # print the values in 365_day_revenue
-        # print(cast_crew[cast_crew["movie"] == movie_id]["365_day_revenue"])
+        for i, person_id in enumerate(director_ids):
+            spr = scaled_person_revenue[person_id]
+            if spr is None:
+                scaled_person_revenue[person_id] = [current_movie_revenue]
+            else:
+                scaled_person_revenue[person_id].append(current_movie_revenue)
 
     # now do wikipedia stuff
     wikipedia_days = WikipediaDay.select()

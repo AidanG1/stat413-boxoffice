@@ -207,6 +207,12 @@ def get_box_office_day_frame() -> DataFrame[BoxOfficeDaySchema] | None:
 def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
     # first check if it is movies.csv
     if os.path.exists(MOVIES_CSV_PATH):
+        # so this exists but may be out of date. If the changes to the frames file are newer than the changes to the movies.csv file, then we need to recalculate
+        print(f"movies.csv exists, {os.path.getmtime(MOVIES_CSV_PATH)}, {os.path.getmtime(__file__)}")
+        if os.path.getmtime(__file__) > os.path.getmtime(MOVIES_CSV_PATH):
+            print("movies.csv is out of date, recalculating")
+            return calculate_movie_frame()
+
         print("Reading from movies.csv")
         df = pd.read_csv(MOVIES_CSV_PATH)
 

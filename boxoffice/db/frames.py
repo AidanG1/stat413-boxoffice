@@ -691,6 +691,14 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             else:
                 scaled_person_revenue[person_id].append(current_movie_revenue)
 
+    # fill in the NaNs with 0
+    df["director_median_box_office"] = df["director_median_box_office"].fillna(0)
+    df["director_mean_box_office"] = df["director_mean_box_office"].fillna(0)
+    df["weighted_crew_median_box_office"] = df["weighted_crew_median_box_office"].fillna(0)
+    df["weighted_crew_mean_box_office"] = df["weighted_crew_mean_box_office"].fillna(0)
+    df["weighted_cast_median_box_office"] = df["weighted_cast_median_box_office"].fillna(0)
+    df["weighted_cast_mean_box_office"] = df["weighted_cast_mean_box_office"].fillna(0)
+
     # now do wikipedia stuff
     wikipedia_days = WikipediaDay.select()
 

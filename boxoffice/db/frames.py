@@ -139,7 +139,6 @@ class MovieCompleteSchema(MovieWikipediaSchema):
     release_day_of_week: int = pa.Field()  # 0 is Monday, 6 is Sunday
     release_day_of_week_non_preview: int = pa.Field()  # 0 is Monday, 6 is Sunday
     release_day_first_friday: datetime.date = pa.Field()
-    release_day_wide_friday: datetime.date = pa.Field()
     release_month: int = pa.Field()  # 1 is January, 12 is December
     release_day_of_month: int = pa.Field()  # 1 is the first day of the month, 31 is the last day of the month
     opening_weekend_revenue: int = pa.Field(
@@ -233,7 +232,6 @@ def get_movie_frame_full() -> DataFrame[MovieCompleteSchema] | None:
         df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
         df["release_day_non_preview"] = pd.to_datetime(df["release_day_non_preview"]).dt.date
         df["release_day_first_friday"] = pd.to_datetime(df["release_day_first_friday"]).dt.date
-        df["release_day_wide_friday"] = pd.to_datetime(df["release_day_wide_friday"]).dt.date
 
         return DataFrame[MovieCompleteSchema](df)
     else:
@@ -267,16 +265,6 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .where(BoxOfficeDay.is_preview == False)
         .group_by(BoxOfficeDay.movie)
     )
-
-    release_day_wide_friday_query = (
-        BoxOfficeDay.select(
-            BoxOfficeDay.movie_id,  # type: ignore
-            fn.MIN(BoxOfficeDay.date).alias("release_day_wide_friday"),
-        )
-        .where(BoxOfficeDay.theaters >= 750)  # type: ignore
-        .group_by(BoxOfficeDay.movie)
-    )
-
     days_over_1000_theaters_query = (
         BoxOfficeDay.select(
             BoxOfficeDay.movie_id,  # type: ignore
@@ -340,7 +328,6 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Franchise.slug.alias("franchise_slug"),
             subquery.c.release_day_non_preview,
             subquery.c.largest_theater_count,
-            release_day_wide_friday_query.c.release_day_wide_friday,
             days_over_1000_theaters_query.c.days_over_1000_theaters,
             days_over_1000000_revenue_query.c.days_over_1000000_revenue,
             days_over_100000_revenue_query.c.days_over_100000_revenue,
@@ -353,10 +340,6 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .join_from(MovieDistributor, Distributor)
         .join_from(MovieFranchise, Franchise, JOIN.LEFT_OUTER)
         .join(subquery, on=(Movie.id == subquery.c.movie_id))
-        .join(
-            release_day_wide_friday_query,
-            on=(Movie.id == release_day_wide_friday_query.c.movie_id),
-        )
         .join(
             days_over_1000_theaters_query,
             on=(Movie.id == days_over_1000_theaters_query.c.movie_id),
@@ -404,6 +387,8 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     prior_len = len(movies_df)
     # make sure release_day is a date
     movies_df["release_day"] = pd.to_datetime(movies_df["release_day"])
+    movies_df["release_day_non_preview"] = pd.to_datetime(movies_df["release_day_non_preview"])
+    movies_df["release_day_first_friday"] = pd.to_datetime(movies_df["release_day_first_friday"])
     movies_df = movies_df[movies_df["release_day"].dt.year == movies_df["release_year"]]
     print(f"Filtered out {prior_len - len(movies_df)} re-releases, there are now {len(movies_df)} movies")
 
@@ -819,6 +804,8 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     # make sure release_day is a date
     df["release_day"] = pd.to_datetime(df["release_day"]).dt.date
+    df["release_day_non_preview"] = pd.to_datetime(df["release_day_non_preview"]).dt.date
+    df["release_day_first_friday"] = pd.to_datetime(df["release_day_first_friday"]).dt.date
 
     # remove the movie_id column
     df.drop(columns=["movie_id"], inplace=True)

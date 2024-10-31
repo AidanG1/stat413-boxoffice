@@ -1,10 +1,8 @@
-from enum import auto
+from enum import auto, unique
 from peewee import *
 from boxoffice.db.db_path import base_db_path
 
-sqlite_db = SqliteDatabase(
-    base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64}
-)
+sqlite_db = SqliteDatabase(base_db_path, pragmas={"journal_mode": "wal", "cache_size": -1024 * 64})
 
 
 class BaseModel(Model):
@@ -79,9 +77,7 @@ class Movie(BaseModel):
     mpaa_rating = CharField()
     mpaa_rating_reason = CharField(null=True)
     mpaa_rating_date = DateField(null=True)
-    running_time = IntegerField(
-        null=True
-    )  # this is -1 in rare cases where the numbers doesn't have data
+    running_time = IntegerField(null=True)  # this is -1 in rare cases where the numbers doesn't have data
     source = CharField()
     genre = CharField()
     production_method = CharField()
@@ -89,7 +85,6 @@ class Movie(BaseModel):
     budget = IntegerField(null=True)
     wikipedia_key = CharField(null=True)
     wikipedia_id = IntegerField(null=True)
-
     meets_keep_requirements = BooleanField(default=False)
 
     class Meta:
@@ -121,16 +116,12 @@ class MovieKeyword(BaseModel):
 
 class MovieProductionCompany(BaseModel):
     movie = ForeignKeyField(Movie, backref="movie_production_companies")
-    production_company = ForeignKeyField(
-        ProductionCompany, backref="movie_production_companies"
-    )
+    production_company = ForeignKeyField(ProductionCompany, backref="movie_production_companies")
 
 
 class MovieProductionCountry(BaseModel):
     movie = ForeignKeyField(Movie, backref="movie_production_countries")
-    production_country = ForeignKeyField(
-        ProductionCountry, backref="movie_production_countries"
-    )
+    production_country = ForeignKeyField(ProductionCountry, backref="movie_production_countries")
 
 
 class DomesticRelease(BaseModel):
@@ -168,6 +159,76 @@ class MovieLanguage(BaseModel):
 class MovieDistributor(BaseModel):
     movie = ForeignKeyField(Movie, backref="distributors")
     distributor = ForeignKeyField(Distributor, backref="movies")
+
+
+# class TMDbMovie(BaseModel):
+#     movie = ForeignKeyField(Movie, backref="tmdb", unique=True)  # movies can only have one TMDb entry
+#     tmdb_id = IntegerField()
+#     imdb_id = CharField(null=True)
+#     backdrop_path = CharField(null=True)
+#     belongs_to_collection = ForeignKeyField("TMDbCollection", backref="movies", null=True)
+#     budget = IntegerField(null=True)
+#     homepage = CharField(null=True)
+#     original_language = CharField()
+#     original_title = CharField()
+#     poster_path = CharField(null=True)
+#     release_date = DateField()
+#     revenue = IntegerField(null=True)
+#     runtime = IntegerField(null=True)
+#     status = CharField()
+#     tagline = CharField(null=True)
+#     title = CharField()
+
+
+# class TMDbCollection(BaseModel):
+#     tmdb_id = IntegerField(primary_key=True)
+#     name = CharField()
+#     poster_path = CharField(null=True)
+#     backdrop_path = CharField(null=True)
+
+
+# class TMDbGenre(BaseModel):
+#     tmdb_id = IntegerField(primary_key=True)
+#     name = CharField()
+
+
+# class TMDbProductionCompany(BaseModel):
+#     tmdb_id = IntegerField(primary_key=True)
+#     name = CharField()
+#     logo_path = CharField(null=True)
+
+
+# class TMDbProductionCountry(BaseModel):
+#     tmdb_id = IntegerField(primary_key=True)
+#     name = CharField()
+#     iso_3166_1 = CharField()
+
+
+# class TMDbSpokenLanguage(BaseModel):
+#     tmdb_id = IntegerField(primary_key=True)
+#     name = CharField()
+#     iso_639_1 = CharField()
+#     english_name = CharField()
+
+
+# class TMDbMovieGenre(BaseModel):
+#     movie = ForeignKeyField(TMDbMovie, backref="genres")
+#     genre = ForeignKeyField(TMDbGenre, backref="movies")
+
+
+# class TMDbMovieProductionCompany(BaseModel):
+#     movie = ForeignKeyField(TMDbMovie, backref="production_companies")
+#     production_company = ForeignKeyField(TMDbProductionCompany, backref="movies")
+
+
+# class TMDbMovieProductionCountry(BaseModel):
+#     movie = ForeignKeyField(TMDbMovie, backref="production_countries")
+#     production_country = ForeignKeyField(TMDbProductionCountry, backref="movies")
+
+
+# class TMDbMovieSpokenLanguage(BaseModel):
+#     movie = ForeignKeyField(TMDbMovie, backref="spoken_languages")
+#     spoken_language = ForeignKeyField(TMDbSpokenLanguage, backref="movies")
 
 
 def sqlite_db_connect():

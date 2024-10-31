@@ -6,7 +6,8 @@
         "boxoffice",
         "isin",
         "mpaa",
-        "pandera"
+        "pandera",
+        "tmdb"
     ],
     "python.analysis.autoImportCompletions": true
 }

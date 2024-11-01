@@ -166,6 +166,7 @@ movie_title_manual_corrections = {
     "Tyler Perry’s Boo! A Madea Halloween": "Boo! A Madea Halloween",
     "John Wick: Chapter Two": "John Wick: Chapter 2",
     "Power Rangers": "Saban's Power Rangers",
+    "The Boondock Saints 2: All Saints Day": "The Boondock Saints II: All Saints Day",
 }
 
 
@@ -173,10 +174,10 @@ if __name__ == "__main__":
     metacritic_movies = MovieMetacritic.select()
     metacritic_movie_ids = [mcm.movie for mcm in metacritic_movies]
     movies: list[Movie] = Movie.select().where(Movie.id.not_in(metacritic_movie_ids))
-    for movie in movies[:1000]:
+    for movie in movies[1000:2000]:
         # if release year is before 2004, skip
         if movie.release_year < 2004:
-            print(f"{bcolors.WARNING}Skipping {movie.title} ({movie.release_year}) due to release year{bcolors.ENDC}")
+            print(f"{bcolors.OKCYAN}Skipping {movie.title} ({movie.release_year}) due to release year{bcolors.ENDC}")
             continue
 
         movie_title = movie.title
@@ -201,6 +202,7 @@ if __name__ == "__main__":
             .replace("/", "")
             .replace(".", "")
             .replace("?", "")
+            .replace("$", "")
             # .replace("!", "")
             .replace("& ", "")
             .replace("&", "")
@@ -247,7 +249,11 @@ if __name__ == "__main__":
         first_day = box_office_days[0].date
 
         for box_office_day in box_office_days:
-            if box_office_day.date.weekday() == 4 and box_office_day.theaters > 1000:
+            if (
+                box_office_day.date.weekday() == 4
+                and box_office_day.theaters is not None
+                and box_office_day.theaters > 1000
+            ):
                 wide_friday = box_office_day.date
                 break
 
@@ -274,7 +280,7 @@ if __name__ == "__main__":
             if publication_date is None:
                 if not publication_fail_printed:
                     print(
-                        f"{bcolors.FAIL}Reviews with no publication date found for {movie.title} ({movie.release_year}){bcolors.ENDC}"
+                        f"{bcolors.WARNING}Reviews with no publication date found for {movie.title} ({movie.release_year}){bcolors.ENDC}"
                     )
                     publication_fail_printed = True
                 continue

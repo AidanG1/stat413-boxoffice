@@ -6,4 +6,5 @@ boxoffice/db/data/data.sqlite-shm
 boxoffice/db/data/data.sqlite-wal
 boxoffice/scrape/daily_html/*
 boxoffice/scrape/detail_html/*
+boxoffice/scrape/metacritic/*
 venv/*

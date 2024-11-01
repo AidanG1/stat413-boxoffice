@@ -1,3 +1,4 @@
+from curses import meta
 from enum import auto, unique
 from peewee import *
 from boxoffice.db.db_path import base_db_path
@@ -159,6 +160,17 @@ class MovieLanguage(BaseModel):
 class MovieDistributor(BaseModel):
     movie = ForeignKeyField(Movie, backref="distributors")
     distributor = ForeignKeyField(Distributor, backref="movies")
+
+
+class MovieMetacritic(BaseModel):
+    movie = ForeignKeyField(Movie, backref="metacritic", unique=True)  # movies can only have one metacritic entry
+    metacritic_slug = CharField()
+    metacritic_score = IntegerField()
+    metacritic_review_count = IntegerField()
+    metacritic_score_calculated = IntegerField()
+    metacritic_monday_before_wide_friday_calculated = IntegerField(null=True)
+    metacritic_before_wide_friday_calculated = IntegerField(null=True)
+    metacritic_before_first_day_calculated = IntegerField(null=True)
 
 
 # class TMDbMovie(BaseModel):

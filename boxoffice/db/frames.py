@@ -1,4 +1,5 @@
 from math import e
+from re import M
 from boxoffice.colors import bcolors
 from boxoffice.db.db import (
     BoxOfficeDay,
@@ -13,6 +14,7 @@ from boxoffice.db.db import (
     MovieKeyword,
     Keyword,
     WikipediaDay,
+    MovieMetacritic,
 )
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
@@ -104,6 +106,13 @@ class MovieSchemaWithBoxOffice(MovieSchema):
     days_over_1000000_revenue: int = pa.Field(ge=0)
     days_over_100000_revenue: int = pa.Field(ge=0)
     preview_sum: float = pa.Field(ge=0, nullable=True)  # some movies don't have previews
+
+    metacritic_score: float = pa.Field(ge=0, nullable=True)
+    metacritic_review_count: int = pa.Field(ge=0)
+    metacritic_score_calculated: float = pa.Field(ge=0, nullable=True)
+    metacritic_monday_before_wide_friday_calculated: float = pa.Field(ge=0, nullable=True)
+    metacritic_before_wide_friday_calculated: float = pa.Field(ge=0, nullable=True)
+    metacritic_before_first_day_calculated: float = pa.Field(ge=0, nullable=True)
 
 
 class JoinedMovieSchema(MovieSchemaWithBoxOffice):
@@ -332,6 +341,12 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             days_over_1000000_revenue_query.c.days_over_1000000_revenue,
             days_over_100000_revenue_query.c.days_over_100000_revenue,
             preview_sum_query.c.preview_sum,
+            MovieMetacritic.metacritic_score,
+            MovieMetacritic.metacritic_review_count,
+            MovieMetacritic.metacritic_score_calculated,
+            MovieMetacritic.metacritic_monday_before_wide_friday_calculated,
+            MovieMetacritic.metacritic_before_wide_friday_calculated,
+            MovieMetacritic.metacritic_before_first_day_calculated,
         )
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
@@ -339,6 +354,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .join_from(Movie, MovieFranchise, JOIN.LEFT_OUTER)
         .join_from(MovieDistributor, Distributor)
         .join_from(MovieFranchise, Franchise, JOIN.LEFT_OUTER)
+        .join_from(Movie, MovieMetacritic)
         .join(subquery, on=(Movie.id == subquery.c.movie_id))
         .join(
             days_over_1000_theaters_query,

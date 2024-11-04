@@ -171,6 +171,14 @@ class MovieMetacritic(BaseModel):
     metacritic_before_first_day_calculated = IntegerField(null=True)
 
 
+class MovieTrailerViews(BaseModel):
+    movie = ForeignKeyField(Movie, backref="trailer_views", unique=True)  # movies can only have one metacritic entry
+    max_trailer_views = IntegerField(null=True)
+    top_3_trailer_views = IntegerField(null=True)  # only for results that say trailer in the name
+    top_5_trailer_views = IntegerField(null=True)  # only for results that say trailer in the name
+    total_trailer_views = IntegerField(null=True)  # only for results that say trailer in the name
+
+
 # class TMDbMovie(BaseModel):
 #     movie = ForeignKeyField(Movie, backref="tmdb", unique=True)  # movies can only have one TMDb entry
 #     tmdb_id = IntegerField()

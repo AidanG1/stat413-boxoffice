@@ -1,5 +1,3 @@
-from math import e
-from re import M
 from boxoffice.colors import bcolors
 from boxoffice.db.db import (
     BoxOfficeDay,

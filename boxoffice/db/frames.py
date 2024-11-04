@@ -185,6 +185,9 @@ class MovieCompleteSchema(MovieWikipediaSchema):
     weighted_cast_median_box_office: float = pa.Field(ge=0, nullable=True)
     weighted_cast_mean_box_office: float = pa.Field(ge=0, nullable=True)
 
+    sum_cast_box_office: float = pa.Field(ge=0, nullable=True)
+    sum_crew_box_office: float = pa.Field(ge=0, nullable=True)
+
 
 def get_movie_frame() -> pd.DataFrame | None:
     movies = Movie.select()
@@ -621,6 +624,8 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df["weighted_crew_mean_box_office"] = np.zeros(len(df))
     df["weighted_cast_median_box_office"] = np.zeros(len(df))
     df["weighted_cast_mean_box_office"] = np.zeros(len(df))
+    df["sum_cast_box_office"] = np.zeros(len(df))
+    df["sum_crew_box_office"] = np.zeros(len(df))
 
     # iterate through the movies and calculate the 365 day revenue for each movie
     for i, row in df.iterrows():
@@ -691,6 +696,9 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             df.at[i, "weighted_cast_median_box_office"] = 0
             df.at[i, "weighted_cast_mean_box_office"] = 0
 
+        df.at[i, "sum_cast_box_office"] = sum(cast_revenues)
+        df.at[i, "sum_crew_box_office"] = sum(crew_revenues)
+
         # now update the scaled_person_revenue
         for i, person_id in enumerate(cast_ids):
             scaled_revenue = current_movie_revenue / (0.25 * i + 1)
@@ -722,6 +730,8 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     df["weighted_crew_mean_box_office"] = df["weighted_crew_mean_box_office"].fillna(0)
     df["weighted_cast_median_box_office"] = df["weighted_cast_median_box_office"].fillna(0)
     df["weighted_cast_mean_box_office"] = df["weighted_cast_mean_box_office"].fillna(0)
+    df["sum_cast_box_office"] = df["sum_cast_box_office"].fillna(0)
+    df["sum_crew_box_office"] = df["sum_crew_box_office"].fillna(0)
 
     # now do wikipedia stuff
     wikipedia_days = WikipediaDay.select()

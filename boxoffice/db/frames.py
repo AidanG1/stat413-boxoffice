@@ -13,6 +13,7 @@ from boxoffice.db.db import (
     Keyword,
     WikipediaDay,
     MovieMetacritic,
+    MovieTrailerViews,
 )
 from pandera.errors import SchemaError
 from pandera.typing import DataFrame
@@ -48,7 +49,7 @@ class MovieSchema(pa.DataFrameModel):
     release_year: int = pa.Field(ge=0)
     mpaa_rating: str = pa.Field()
     # mpaa_rating: str = pa.Field(isin=MPAA_RATING)
-    running_time: float = pa.Field(nullable=True)  # this can be -1 if the runtime is unknown
+    running_time: int = pa.Field(nullable=True)  # this can be -1 if the runtime is unknown
     synopsis: str = pa.Field(nullable=True)
     mpaa_rating_reason: str = pa.Field(nullable=True)
     budget: float = pa.Field(ge=0, nullable=True, coerce=True)
@@ -111,6 +112,11 @@ class MovieSchemaWithBoxOffice(MovieSchema):
     metacritic_monday_before_wide_friday_calculated: float = pa.Field(ge=0, nullable=True)
     metacritic_before_wide_friday_calculated: float = pa.Field(ge=0, nullable=True)
     metacritic_before_first_day_calculated: float = pa.Field(ge=0, nullable=True)
+
+    max_trailer_views: int = pa.Field(ge=0, nullable=True)
+    top_3_trailer_views: int = pa.Field(ge=0, nullable=True)
+    top_5_trailer_views: int = pa.Field(ge=0, nullable=True)
+    total_trailer_views: int = pa.Field(ge=0, nullable=True)
 
 
 class JoinedMovieSchema(MovieSchemaWithBoxOffice):
@@ -348,6 +354,10 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             MovieMetacritic.metacritic_monday_before_wide_friday_calculated,
             MovieMetacritic.metacritic_before_wide_friday_calculated,
             MovieMetacritic.metacritic_before_first_day_calculated,
+            MovieTrailerViews.max_trailer_views,
+            MovieTrailerViews.top_3_trailer_views,
+            MovieTrailerViews.top_5_trailer_views,
+            MovieTrailerViews.total_trailer_views,
         )
         .join(BoxOfficeDay, on=(Movie.id == BoxOfficeDay.movie))
         .group_by(Movie.id)
@@ -356,6 +366,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
         .join_from(MovieDistributor, Distributor)
         .join_from(MovieFranchise, Franchise, JOIN.LEFT_OUTER)
         .join_from(Movie, MovieMetacritic)
+        .join_from(Movie, MovieTrailerViews)
         .join(subquery, on=(Movie.id == subquery.c.movie_id))
         .join(
             days_over_1000_theaters_query,

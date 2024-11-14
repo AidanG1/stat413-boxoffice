@@ -12,6 +12,7 @@ pandera==0.20.4
 scikit-learn==1.5.2
 seaborn==0.13.2
 statsmodels==0.14.3
+plotly
 
 # Neatness
 pre-commit==3.8.0

@@ -403,6 +403,9 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
 
     movies_df = DataFrame[JoinedMovieSchema](dicts)
 
+    # write to a preliminary file
+    # movies_df.to_csv("preliminary_movies.csv", index=False)
+
     # within synopsis, replace commas and newlines
     movies_df["synopsis"] = movies_df["synopsis"].str.replace(",", "%2C")
     movies_df["synopsis"] = movies_df["synopsis"].str.replace("\n", "%0A")
@@ -417,7 +420,11 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
     movies_df["release_day"] = pd.to_datetime(movies_df["release_day"])
     movies_df["release_day_non_preview"] = pd.to_datetime(movies_df["release_day_non_preview"])
     movies_df["release_day_first_friday"] = pd.to_datetime(movies_df["release_day_first_friday"])
-    movies_df = movies_df[movies_df["release_day"].dt.year == movies_df["release_year"]]
+    movies_df = movies_df[
+        (movies_df["release_day"].dt.year == movies_df["release_year"])
+        | (movies_df["release_day"].dt.year - 1 == movies_df["release_year"])
+        | (movies_df["release_day"].dt.year + 1 == movies_df["release_year"])
+    ]
     print(f"Filtered out {prior_len - len(movies_df)} re-releases, there are now {len(movies_df)} movies")
 
     # need to calculate the release day of the week

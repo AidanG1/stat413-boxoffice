@@ -11,7 +11,7 @@ if df is None:
 
 df = df.dropna(subset=["budget"])
 df = df.drop(columns=["opening_weekend_revenue"])
-df = df[df["release_day"] >= datetime.date(2015, 1, 1)]
+df = df[df["release_day"] >= datetime.date(2015, 9, 1)]
 dummies = pd.get_dummies(
     df[["mpaa_rating", "genre", "creative_type", "source", "production_method", "distributor_slug"]], drop_first=True
 )
@@ -20,6 +20,7 @@ df = pd.concat([df, dummies], axis=1)
 # within the dummy columns, rename any with spaces or hyphens to use underscores
 df.columns = df.columns.str.replace(" ", "_")
 df.columns = df.columns.str.replace("-", "_")
+df.columns = df.columns.str.replace("/", "")
 
 df["in_franchise"] = df["franchise_slug"].notnull().astype(int)
 

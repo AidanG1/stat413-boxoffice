@@ -62,6 +62,7 @@ class MovieSchema(pa.DataFrameModel):
     source: str = pa.Field()
     # source: str = pa.Field(isin=SOURCE)
     poster: str = pa.Field(nullable=True)
+    wikipedia_key: str = pa.Field(nullable=True)
 
 
 class BoxOfficeDaySchema(pa.DataFrameModel):
@@ -334,6 +335,7 @@ def calculate_movie_frame() -> DataFrame[MovieCompleteSchema] | None:
             Movie.production_method,
             Movie.source,
             Movie.poster,
+            Movie.wikipedia_key,
             fn.SUM(BoxOfficeDay.revenue).alias("total_box_office"),
             fn.MIN(BoxOfficeDay.date).alias("release_day"),
             MovieDistributor.distributor.alias("distributor_id"),

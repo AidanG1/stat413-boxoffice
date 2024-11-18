@@ -27,22 +27,19 @@ def convert_date_to_string(date: datetime.date):
     return date.strftime("%Y%m%d00")
 
 
-def get_wikipedia_page_views(movie: Movie, s: requests.Session):
-    # get the existing wikipedia days
-    existing_wikipedia_days = WikipediaDay.select().where(WikipediaDay.movie == movie)
+def get_wikipedia_url(wikipedia_key: str, start_date: datetime.date, end_date: datetime.date):
+    start_date_str = convert_date_to_string(start_date)
+    end_date_str = convert_date_to_string(end_date)
 
-    if existing_wikipedia_days.count() > 0:
-        print(f"already have wikipedia days for {movie.title}")
-        return
+    return f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/{wikipedia_key}/daily/{start_date_str}/{end_date_str}"
 
-    # get the box office days
-    box_office_days = BoxOfficeDay.select().where(BoxOfficeDay.movie == movie.id).order_by(BoxOfficeDay.date.asc())
 
+def get_start_date_end_date(movie: Movie) -> tuple[datetime.date, datetime.date]:
     max_wikipedia_days = 365 + 60
+    box_office_days = BoxOfficeDay.select().where(BoxOfficeDay.movie == movie).order_by(BoxOfficeDay.date.asc())
 
     # get the start date
     start_date = box_office_days[0].date - datetime.timedelta(days=60)
-    start_date_str = convert_date_to_string(start_date)
 
     # get the end date
     end_date = box_office_days[-1].date
@@ -50,18 +47,10 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
     if (end_date - start_date).days > max_wikipedia_days:
         end_date = start_date + datetime.timedelta(days=max_wikipedia_days)
 
-    end_date_str = convert_date_to_string(end_date)
+    return start_date, end_date
 
-    # get the wikipedia key
-    wikipedia_key = movie.wikipedia_key
 
-    if wikipedia_key is None:
-        print(f"no wikipedia key for {movie.title}")
-        return
-
-    # get the url
-    url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/{wikipedia_key}/daily/{start_date_str}/{end_date_str}"
-
+def request_wikipedia_page_views(url: str, title: str) -> list[WikipediaPageView]:
     # get the response
     response = s.get(url)
 
@@ -70,7 +59,7 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
 
     if "items" not in data:
         # print in red, no items for the movie
-        print(f"{bcolors.FAIL}no items for {movie.title}{bcolors.ENDC} with url {url}")
+        print(f"{bcolors.FAIL}no items for {title}{bcolors.ENDC} with url {url}")
         if response.status_code == 429:
             print(response.text)
             print(response.status_code)
@@ -81,7 +70,29 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
     # get the items
     items = data["items"]
 
-    # for each item, create a wikipedia day
+    return items
+
+
+def get_wikipedia_items(movie: Movie) -> list[WikipediaPageView]:
+    # get the start date and end date
+    start_date, end_date = get_start_date_end_date(movie)
+
+    # get the wikipedia key
+    wikipedia_key: str = str(movie.wikipedia_key)
+
+    if wikipedia_key is None:
+        print(f"no wikipedia key for {movie.title}")
+        return None
+
+    url = get_wikipedia_url(wikipedia_key, start_date, end_date)
+
+    # get the items
+    items = request_wikipedia_page_views(url, movie.title)
+
+    return items
+
+
+def create_wikipedia_items(movie: Movie, items: list[WikipediaPageView]):
     wikipedia_days: list[WikipediaDay] = []
 
     for item in items:
@@ -110,7 +121,29 @@ def get_wikipedia_page_views(movie: Movie, s: requests.Session):
     return wikipedia_days
 
 
+def get_wikipedia_page_views(movie: Movie, existing_check: bool = True):
+    # get the existing wikipedia days
+    if existing_check:
+        existing_wikipedia_days = WikipediaDay.select().where(WikipediaDay.movie == movie)
+
+        if existing_wikipedia_days.count() > 0:
+            print(f"already have wikipedia days for {movie.title}")
+            return
+
+    # get the items
+    items = get_wikipedia_items(movie)
+
+    if items is None:
+        print(f"no items for {movie.title}")
+        return
+
+    # create the wikipedia items
+    wikipedia_days = create_wikipedia_items(movie, items)
+
+    return wikipedia_days
+
+
 if __name__ == "__main__":
     movies = Movie.select().where(Movie.wikipedia_key.is_null(False))
     for movie in movies:
-        get_wikipedia_page_views(movie, s)
+        get_wikipedia_page_views(movie)

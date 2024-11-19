@@ -65,6 +65,19 @@ df = df.drop(
 # fill na values with 0
 df = df.fillna(0)
 
+# create normalized columns
+df["normalized_budget"] = (df["budget"] - df["budget"].mean()) / df["budget"].std()
+df["normalized_wikipedia_pre_release_cumulative_views"] = (
+    df["wikipedia_pre_release_cumulative_views"] - df["wikipedia_pre_release_cumulative_views"].mean()
+) / df["wikipedia_pre_release_cumulative_views"].std()
+df["normalized_top_5_trailer_views"] = (df["top_5_trailer_views"] - df["top_5_trailer_views"].mean()) / df[
+    "top_5_trailer_views"
+].std()
+df["normalized_metacritic_before_wide_friday_calculated"] = (
+    df["metacritic_before_wide_friday_calculated"] - df["metacritic_before_wide_friday_calculated"].mean()
+) / df["metacritic_before_wide_friday_calculated"].std()
+
+
 X_train = df[(df["release_day"] < datetime.date(2023, 1, 1))]
 X_test = df[df["release_day"] >= datetime.date(2023, 1, 1)]
 

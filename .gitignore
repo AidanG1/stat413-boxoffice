@@ -9,3 +9,4 @@ boxoffice/scrape/detail_html/*
 boxoffice/scrape/metacritic/*
 venv/*
 **/training_data.csv
+*.DS_Store

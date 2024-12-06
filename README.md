@@ -1,3 +1,9 @@
+# File Structure
+- For data scraping code, see [boxoffice/scrape](https://github.com/AidanG1/stat413-boxoffice/tree/main/boxoffice/scrape). 
+- For models, see [boxoffice/modeling](https://github.com/AidanG1/stat413-boxoffice/tree/main/boxoffice/modeling). 
+- Our final model, along with the associated plots, is located in [boxoffice/modeling/nov19model.ipynb](https://github.com/AidanG1/stat413-boxoffice/blob/main/boxoffice/modeling/nov19model.ipynb)
+- For exploratory data analysis code, see [boxoffice/analysis](https://github.com/AidanG1/stat413-boxoffice/tree/main/boxoffice/analysis)
+
 # Setup
 ```bash
 # clone the repo
